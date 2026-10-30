@@ -9,13 +9,12 @@ existing Gradle signing configuration remain unchanged.
 
 The actual public API origin is `https://level-up-5nmw.onrender.com`. Its
 `/health` endpoint returns `{"status":"ok"}`, proving Render can reach Atlas.
-On 30 October 2026, a safe unauthenticated request to `/api/v1/state` returned
-`426 https_required` instead of the expected `401 unauthorized`. Registration,
-sign-in and synchronization therefore fail at the same HTTPS proxy check before
-they reach authentication or MongoDB. Set `TRUST_PROXY_HOPS=1` on the existing
-Render service, deploy the current backend source, and require the documented
-`401` verification before distributing another APK. See
-[authentication configuration](AUTH_CONFIGURATION.md).
+On 30 October 2026, after the Render service was redeployed with
+`TRUST_PROXY_HOPS=1`, a safe unauthenticated request to `/api/v1/state`
+returned the expected `401 unauthorized`. The forwarded-HTTPS proxy defect that
+previously stopped registration, sign-in and synchronization before they reached
+authentication has been resolved. This check did not create an account or write
+user data. See [authentication configuration](AUTH_CONFIGURATION.md).
 
 ## Earlier deployment-preparation snapshot
 

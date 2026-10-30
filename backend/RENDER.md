@@ -14,15 +14,16 @@ against Atlas during that check.
 
 That earlier check verified connectivity from this computer. The subsequently
 supplied `https://level-up-5nmw.onrender.com/health` also returns 200 with a
-successful database ping. Live authentication and writes remain blocked by the
-deployed HTTPS proxy configuration described below; no production test accounts
-or user records were created during diagnosis.
+successful database ping. After Render was redeployed with
+`TRUST_PROXY_HOPS=1`, the credential-free private-route check reached the
+expected `401 unauthorized` response. No production test accounts or user
+records were created during diagnosis.
 
 Local verification after the preparation changes:
 
 | Check | Result |
 | --- | --- |
-| `npm test` | **38 passed**, no skips, using a temporary real MongoDB replica set; 13.1s |
+| `npm test` | **54 passed**, no skips |
 | `npm run check` | Passed |
 | `npm audit` | Zero vulnerabilities |
 | Existing local Atlas configuration + driver connect/ping | Valid; read-only ping succeeded; no user-data writes |
@@ -142,21 +143,20 @@ A connection/ping does not prove write privileges or exercise transaction
 workflows. Verify the deployed app against the existing database after the
 service is reachable, without resetting it or replacing existing records.
 
-## Existing-service diagnosis (30 October 2026)
+## Existing-service verification (30 October 2026)
 
-The supplied public origin `https://level-up-5nmw.onrender.com` currently
-returns `200 {"status":"ok"}` from `/health`, so its configured process can
-reach the database. A credential-free `GET /api/v1/state` returned
-`426 https_required`, where a public HTTPS request should reach authentication
-and return `401 unauthorized`. This means the currently deployed service is not
-trusting Render's forwarded HTTPS hop (or is running an earlier source/env
-configuration). It is the shared root cause of registration, sign-in and sync
-failure; it is not evidence of an Atlas outage.
+The supplied public origin `https://level-up-5nmw.onrender.com` returns
+`200 {"status":"ok"}` from `/health`, so its configured process can reach the
+database. It previously returned `426 https_required` for a credential-free
+`GET /api/v1/state`; this identified a missing trusted forwarded-HTTPS hop,
+not an Atlas outage. Following the Render redeploy with `TRUST_PROXY_HOPS=1`,
+the same request returned the expected `401 unauthorized`. Authentication is
+now reached correctly, although a real sign-in requires a deliberately created
+test account and is not implied by this safe check.
 
-Set `TRUST_PROXY_HOPS=1` in that service's Render Environment page and deploy
-the current backend source. The current source also infers one hop from
-Render's `RENDER` environment marker if no explicit value exists. After the
-deploy, run the safe unauthenticated command below and require `401`, not `426`:
+The current source also infers one hop from Render's `RENDER` environment
+marker if no explicit value exists. Keep the explicit production setting and
+use the safe command below after a future infrastructure change; require `401`:
 
 ```powershell
 curl.exe --silent --show-error --max-time 30 -o NUL -w "state_unauth=%{http_code}`n" https://level-up-5nmw.onrender.com/api/v1/state

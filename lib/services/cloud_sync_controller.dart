@@ -318,8 +318,9 @@ class CloudSyncController extends ChangeNotifier {
     if (_disposed ||
         _session == null ||
         _retryTimer != null ||
-        _retryAttempts >= retryDelays.length)
+        _retryAttempts >= retryDelays.length) {
       return;
+    }
     final delay = retryDelays[_retryAttempts++];
     _retryTimer = Timer(delay, () {
       _retryTimer = null;

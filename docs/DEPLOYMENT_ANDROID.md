@@ -150,16 +150,16 @@ these addresses.
 ## Verification and remaining live checks
 
 Validator tests use synthetic inputs and mocked responses. Live diagnosis uses
-the supplied Render origin and confirms a healthy database plus the current
-`426 https_required` proxy failure. The build helper's `-CheckHealth` now also
-requires the private endpoint's expected unauthenticated 401 response, preventing
-a healthy database from masking this configuration problem.
+the supplied Render origin and confirms both a healthy database and the private
+endpoint's expected unauthenticated `401` response after the proxy repair. The
+build helper's `-CheckHealth` requires that response, preventing a healthy
+database from masking a future proxy configuration problem.
 
-Preparation verification: **7 validator/Windows preflight tests passed** and
-**21 existing cloud API/controller regression tests passed**. The Windows
-preflight checks confirm the existing APK's modification time does not change,
-missing release signing fails before Flutter runs, and local API addresses are
-rejected by the production helper.
+Preparation verification includes **17 Node deployment/helper tests**, **54
+backend tests**, and the Flutter authentication/synchronization suite. The
+Windows preflight checks confirm the existing APK's modification time does not
+change, missing release signing fails before Flutter runs, and local API
+addresses are rejected by the production helper.
 
 After deployment, confirm `/health` readiness, register/sign in, synchronize a
 routine and package, and confirm acknowledged changes survive a fresh local

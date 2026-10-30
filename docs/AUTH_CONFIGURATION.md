@@ -8,11 +8,12 @@ Dart define, an APK, Git, or chat.
 ## 1. Repair the deployed API first
 
 The public readiness check at `https://level-up-5nmw.onrender.com/health`
-currently returns `{"status":"ok"}`. That proves Render can reach Atlas. A
-safe unauthenticated private-route check currently returns `426
-https_required`, which proves the deployed service is not trusting Render's
-forwarded HTTPS hop. It explains the shared registration, sign-in and sync
-failure.
+returns `{"status":"ok"}`, proving Render can reach Atlas. On 30 October
+2026, after the Render redeploy with `TRUST_PROXY_HOPS=1`, the safe
+unauthenticated private-route check returned `401 unauthorized`. The deployed
+service now correctly trusts Render's forwarded HTTPS hop and reaches the
+authentication boundary. No account, credentials, or user data were used for
+this verification.
 
 In Render, open the existing Web Service and set these environment values, then
 use **Manual Deploy -> Deploy latest commit** after the code is uploaded:
@@ -30,8 +31,8 @@ The updated server also infers one proxy hop when Render supplies its `RENDER`
 environment marker, but the explicit setting keeps the topology reviewable.
 Do not set `TRUST_PROXY_HOPS` above the actual number of trusted proxies.
 
-After deployment, run this safe check. It must report `state_unauth=401`, not
-`426`; it creates no account and sends no credentials.
+After a future proxy or deployment change, run this safe check. It must report
+`state_unauth=401`, not `426`; it creates no account and sends no credentials.
 
 ```powershell
 node scripts/validate_api_origin.mjs https://level-up-5nmw.onrender.com --auth-readiness
