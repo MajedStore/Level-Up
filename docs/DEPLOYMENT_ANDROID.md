@@ -7,10 +7,13 @@ build time; the phone has no server-address setting. The client appends
 `/api/v1/...` for authentication and synchronization. Supply the HTTPS origin,
 without an `/api/v1` suffix.
 
-No production Render URL is known or supplied in this repository. A build made
-without the define remains explicitly **Cloud sync is not configured for this
-build**. An old APK does not acquire a newly deployed address automatically;
-build and install a new APK after the actual service URL is available.
+The current Render origin is `https://level-up-5nmw.onrender.com`; it is a
+public API address, not a secret. A release must still be rebuilt after each
+configuration change. A build without the define remains explicitly **Cloud
+sync is not configured for this build**. The deployed service must first pass
+the authenticated-route proxy check in
+[authentication configuration](AUTH_CONFIGURATION.md); `/health` alone is not
+enough to prove sign-in works.
 
 Only the public API origin belongs in Flutter or the repository variable. Keep
 `MONGODB_URI`, database passwords and `JWT_SECRET` in the server environment.
@@ -58,11 +61,24 @@ example/placeholder hostnames. It prints only the normalized public origin.
 `{"status":"ok"}`, uses a 20-second timeout and refuses redirects. It does not
 create an account or send database credentials. A failed check stops the helper.
 
-Once release signing exists, use:
+Once release signing exists, use this email/password-only build:
 
 ```powershell
 .\scripts\Build-LevelUpAndroid.ps1 -ApiBaseUrl $RenderUrl -CheckHealth
 ```
+
+For Google Sign-In, add the Web OAuth client ID after it has been configured in
+both Render and Google Cloud Console:
+
+```powershell
+.\scripts\Build-LevelUpAndroid.ps1 -ApiBaseUrl $RenderUrl -CheckHealth `
+  -GoogleServerClientId 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com'
+```
+
+The helper accepts only a Web client ID ending in
+`.apps.googleusercontent.com` and does not display its value. This identifier
+is public configuration; it is not a Google client secret. See
+[Google/Resend setup](AUTH_CONFIGURATION.md).
 
 If Flutter is not on `PATH`, pass its existing executable explicitly:
 
@@ -103,8 +119,11 @@ in directly without entering a URL on their phones.
 ## GitHub Actions
 
 The Android workflow accepts the public URL through the repository variable
-`LEVEL_UP_API_BASE_URL` or the manual workflow's `api_base_url` input. Use the
-actual deployed origin. These public settings contain no MongoDB or JWT secret.
+`LEVEL_UP_API_BASE_URL` or the manual workflow's `api_base_url` input. It also
+accepts the non-secret Web OAuth client ID through
+`LEVEL_UP_GOOGLE_SERVER_CLIENT_ID` or `google_server_client_id`. Use the actual
+deployed values. These public settings contain no MongoDB, JWT or OAuth client
+secret.
 
 Production release jobs validate the origin before creating a cloud release
 artifact and pass it as the same Dart define. Missing/invalid configuration must
@@ -130,10 +149,11 @@ these addresses.
 
 ## Verification and remaining live checks
 
-The new validator tests use synthetic inputs and mocked health responses; helper
-tests run preflight only. No new production-connected APK was built because the
-real service URL is not available. These tests do not establish that a Render
-service or Atlas connection is live.
+Validator tests use synthetic inputs and mocked responses. Live diagnosis uses
+the supplied Render origin and confirms a healthy database plus the current
+`426 https_required` proxy failure. The build helper's `-CheckHealth` now also
+requires the private endpoint's expected unauthenticated 401 response, preventing
+a healthy database from masking this configuration problem.
 
 Preparation verification: **7 validator/Windows preflight tests passed** and
 **21 existing cloud API/controller regression tests passed**. The Windows
@@ -155,7 +175,8 @@ node --test scripts/validate_api_origin.test.mjs scripts/build_android_preflight
 flutter test --no-pub test/cloud_api_test.dart test/cloud_sync_controller_test.dart
 ```
 
-End-to-end Render → Atlas → Android verification, production signing
-configuration, the final URL-bearing release build and installation remain
-pending until their real configuration is supplied. Any separate direct Atlas
-connection check is recorded in [the backend deployment record](../backend/RENDER.md).
+End-to-end Render → Atlas → Android verification, production signing, Google
+OAuth and email configuration remain pending. The public URL has been supplied;
+live results and the current proxy repair are recorded in
+[the backend deployment record](../backend/RENDER.md). Latest auth verification
+and build status are recorded in [the auth report](AUTH_OVERHAUL.md).

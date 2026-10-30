@@ -26,6 +26,7 @@ void main() {
         'http://example.com',
         'https://user:secret@example.com',
         'https://example.com?secret=x',
+        'https://example.com/api/v1',
       ]) {
         expect(
           () => CloudHttpApi(baseUrl: url, allowInsecure: false),
@@ -50,13 +51,24 @@ void main() {
           'body': body,
         });
         request.response.headers.contentType = ContentType.json;
-        if (request.uri.path.endsWith('/login')) {
+        if (request.uri.path.endsWith('/login') ||
+            request.uri.path.endsWith('/google')) {
           request.response.write(
             jsonEncode({
               'user': {'id': 'owner', 'email': 'a@example.com'},
               'accessToken': 'access',
               'refreshToken': 'refresh',
               'expiresIn': 900,
+            }),
+          );
+        } else if (request.uri.path.endsWith('/google/link')) {
+          request.response.write(
+            jsonEncode({
+              'user': {
+                'id': 'owner',
+                'email': 'a@example.com',
+                'hasGoogle': true,
+              },
             }),
           );
         } else if (request.uri.path.endsWith('/logout')) {
@@ -111,6 +123,101 @@ void main() {
       expect(requests[2]['body'], mutation.toMap());
       expect((requests[2]['body'] as Map).keys, isNot(contains('accessToken')));
       expect(requests.last['body'], {'refreshToken': 'refresh'});
+    },
+  );
+
+  test(
+    'Google and password-reset requests transmit only their documented payloads',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final requests = <Map<String, dynamic>>[];
+      server.listen((request) async {
+        final content = await utf8.decoder.bind(request).join();
+        requests.add({
+          'path': request.uri.path,
+          'authorization': request.headers.value('authorization'),
+          'body': content.isEmpty ? null : jsonDecode(content),
+        });
+        request.response.headers.contentType = ContentType.json;
+        if (request.uri.path.endsWith('/google') &&
+            !request.uri.path.endsWith('/google/link')) {
+          request.response.write(
+            jsonEncode({
+              'user': {
+                'id': 'owner',
+                'email': 'a@example.com',
+                'hasGoogle': true,
+              },
+              'accessToken': 'google-access',
+              'refreshToken': 'google-refresh',
+              'expiresIn': 900,
+            }),
+          );
+        } else if (request.uri.path.endsWith('/google/link')) {
+          request.response.write(
+            jsonEncode({
+              'user': {
+                'id': 'owner',
+                'email': 'a@example.com',
+                'hasGoogle': true,
+              },
+            }),
+          );
+        } else {
+          request.response.statusCode = request.uri.path.endsWith('/request')
+              ? HttpStatus.accepted
+              : HttpStatus.ok;
+          request.response.write('{}');
+        }
+        await request.response.close();
+      });
+      final api = CloudHttpApi(
+        baseUrl: 'http://127.0.0.1:${server.port}',
+        allowInsecure: true,
+        clock: () => DateTime.utc(2026, 10, 29, 12),
+      );
+      addTearDown(() async {
+        api.close();
+        await server.close(force: true);
+      });
+      final session = await api.google('opaque-google-id-token');
+      final linked = await api.linkGoogle(
+        session.accessToken,
+        'other-opaque-google-id-token',
+      );
+      await api.requestPasswordReset(' a@example.com ');
+      await api.completePasswordReset(
+        'a@example.com',
+        List.filled(64, 'a').join(),
+        'A-new-long-password-123',
+      );
+      expect(linked.hasGoogle, isTrue);
+      expect(requests, [
+        {
+          'path': '/api/v1/auth/google',
+          'authorization': null,
+          'body': {'idToken': 'opaque-google-id-token'},
+        },
+        {
+          'path': '/api/v1/auth/google/link',
+          'authorization': 'Bearer google-access',
+          'body': {'idToken': 'other-opaque-google-id-token'},
+        },
+        {
+          'path': '/api/v1/auth/password-reset/request',
+          'authorization': null,
+          'body': {'email': 'a@example.com'},
+        },
+        {
+          'path': '/api/v1/auth/password-reset/confirm',
+          'authorization': null,
+          'body': {
+            'email': 'a@example.com',
+            'token': List.filled(64, 'a').join(),
+            'password': 'A-new-long-password-123',
+          },
+        },
+      ]);
     },
   );
 
@@ -200,6 +307,38 @@ void main() {
         throwsA(
           isA<CloudApiException>().having(
             (e) => e.code,
+            'code',
+            'invalid_response',
+          ),
+        ),
+      );
+    },
+  );
+  test(
+    'malformed successful sessions are server response errors, not storage failures',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) async {
+        await request.drain<void>();
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          '{"accessToken":"access","refreshToken":"refresh","user":{},"expiresIn":-1}',
+        );
+        await request.response.close();
+      });
+      final api = CloudHttpApi(
+        baseUrl: 'http://127.0.0.1:${server.port}',
+        allowInsecure: true,
+      );
+      addTearDown(() async {
+        api.close();
+        await server.close(force: true);
+      });
+      await expectLater(
+        api.login('a@example.com', 'password'),
+        throwsA(
+          isA<CloudApiException>().having(
+            (error) => error.code,
             'code',
             'invalid_response',
           ),

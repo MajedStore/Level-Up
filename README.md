@@ -4,6 +4,10 @@ For GitHub upload, Render hosting, Atlas network configuration and the final
 cloud-connected Android build, follow [the deployment handoff](docs/DEPLOYMENT.md).
 Private backend credentials stay in local `.env`/Render environment settings.
 
+For the current sign-in repair, Google OAuth, password recovery and sync retry
+configuration, see [authentication setup](docs/AUTH_CONFIGURATION.md) and
+[implementation verification](docs/AUTH_OVERHAUL.md).
+
 An Android planner with offline use and optional account sync, built by extending Streak. Routines are separate from
 challenge commitments. Challenge completion earns XP; routine completion does not.
 Create reusable packages with custom categories and nested task groups, select

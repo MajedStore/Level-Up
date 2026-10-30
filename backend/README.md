@@ -73,6 +73,8 @@ Official guidance: [Atlas database users](https://www.mongodb.com/docs/atlas/sec
 | `MONGODB_DATABASE` | Database name; default `level_up` |
 | `JWT_SECRET` | At least 32 random bytes; do not use the example placeholder |
 | `JWT_ISSUER`, `JWT_AUDIENCE` | Expected signed access-token identity |
+| `GOOGLE_OAUTH_WEB_CLIENT_ID` | Optional Web OAuth client ID accepted as the Google ID-token audience; it is an identifier, not a client secret |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Optional Resend delivery settings for password-reset email; both are required before reset requests are accepted |
 | `ACCESS_TOKEN_SECONDS` | Default 900; allowed 60–3600 |
 | `REFRESH_TOKEN_DAYS` | Default 30; allowed 1–90 |
 | `HOST`, `PORT` | Development `127.0.0.1:3000`; production host defaults to `0.0.0.0`; honors platform `PORT` |
@@ -116,12 +118,16 @@ token and active session, never a request-body user ID.
 | --- | --- |
 | `POST /auth/register` | `{email,password}` → 201 session |
 | `POST /auth/login` | `{email,password}` → session |
+| `POST /auth/google` | `{idToken}` → session after server verification |
+| `POST /auth/google/link` | Authenticated `{idToken}` → `{user}` after explicit linking |
+| `POST /auth/password-reset/request` | `{email}` → 202 `{accepted:true}`; acceptance does not confirm delivery |
+| `POST /auth/password-reset/confirm` | `{email,token,password}` → `{reset:true}`; consumes the code and revokes sessions |
 | `POST /auth/refresh` | `{refreshToken}` → rotated session |
 | `POST /auth/logout` | `{refreshToken}` → 204; revokes that session |
 | `GET /state` | `{revision,state,settings,serverTime}`; empty account has `state:null, revision:0` |
 | `POST /sync` | `{mutationId,baseRevision,state,settings:{locale},timeZone}` → acknowledged canonical snapshot |
 
-A session is `{user:{id,email},accessToken,refreshToken,expiresIn}`. Email is
+A session is `{user:{id,email,hasPassword,hasGoogle},accessToken,refreshToken,expiresIn}`. Email is
 trimmed and case-normalized; passwords need at least 12 characters and at most
 72 UTF-8 bytes. The backend hashes passwords with bcrypt cost 12 and rejects
 inputs that bcrypt would truncate. Refresh tokens are random opaque 48-byte
@@ -129,6 +135,23 @@ values; only SHA-256 hashes are stored. Refresh consumes the old session in a
 transaction and creates a new one. JWT signatures, issuer, audience, expiry and
 session revocation are checked on every private request. Sign-out revokes the
 session; it does not delete cloud planner records.
+
+### Google and password recovery
+
+`POST /api/v1/auth/google` accepts only an ID token. The server uses Google's
+official verifier to check its signature, issuer, expiry and the
+`GOOGLE_OAUTH_WEB_CLIENT_ID` audience before issuing the normal Level Up
+session. A matching email does not cause a password account to merge: sign in
+with that existing account first, then make the explicit authenticated
+`POST /api/v1/auth/google/link` request.
+
+`POST /api/v1/auth/password-reset/request` always returns the same accepted
+response for valid e-mail input. When Resend is configured, it sends a one-time
+code valid for 30 minutes; only a SHA-256 hash is stored. The confirm endpoint
+consumes the code and revokes all existing sessions. Configured requests return
+the same generic acceptance for unknown accounts and provider failures, without
+claiming delivery; an unsent code is invalidated. Without both `RESEND_API_KEY`
+and `EMAIL_FROM`, password reset returns a safe unavailable status.
 
 Failures use `{error:{code,message}}`. Codes include `validation_failed`,
 `invalid_email`, `weak_password`, `email_exists`, `invalid_credentials`,
@@ -240,7 +263,9 @@ These checks do not establish an Atlas connection or a production deployment.
 This first version uses revision conflicts rather than automatic multi-device
 merging; queued drafts must remain visible to the user. Authentication rate
 limits are per-process, so a multi-instance deployment needs a shared limiter
-or equivalent gateway policy. Password reset, email verification, account
+or equivalent gateway policy. Password reset is operational only after the
+documented Resend sender configuration is supplied; otherwise the API returns
+a safe unavailable error and never claims delivery. Email verification, account
 deletion, push-based cross-device refresh and scheduled server jobs are not
 implemented. Operational deployment and account recovery policies must be
 configured by the owner. Database backups protect against cloud deletion;

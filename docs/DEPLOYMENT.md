@@ -5,7 +5,19 @@ Render service, production API address or release signing identity was invented.
 Version `3.0.0+22`, Android ID `com.streak.app`, XP rules, user data and the
 existing Gradle signing configuration remain unchanged.
 
-## Current status
+## Current production diagnosis
+
+The actual public API origin is `https://level-up-5nmw.onrender.com`. Its
+`/health` endpoint returns `{"status":"ok"}`, proving Render can reach Atlas.
+On 30 October 2026, a safe unauthenticated request to `/api/v1/state` returned
+`426 https_required` instead of the expected `401 unauthorized`. Registration,
+sign-in and synchronization therefore fail at the same HTTPS proxy check before
+they reach authentication or MongoDB. Set `TRUST_PROXY_HOPS=1` on the existing
+Render service, deploy the current backend source, and require the documented
+`401` verification before distributing another APK. See
+[authentication configuration](AUTH_CONFIGURATION.md).
+
+## Earlier deployment-preparation snapshot
 
 | Item | Verified status |
 | --- | --- |
@@ -160,7 +172,7 @@ repository preparation, not an executed GitHub Actions run or external deploy.
 Actionlint's optional ShellCheck/Pyflakes integrations were unavailable; the
 workflow syntax/expression checks ran, and helper scripts were tested directly.
 
-## Actions still requiring you
+## Earlier preparation handoff
 
 1. Create/select your GitHub repository and run the audited upload commands.
 2. Create the Render Web Service, choose its plan and enter private environment

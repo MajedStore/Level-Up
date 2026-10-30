@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { validateApiOrigin, verifyApiHealth } from './validate_api_origin.mjs';
+import { validateApiOrigin, verifyApiHealth, verifyApiAuthReadiness } from './validate_api_origin.mjs';
 
 // These hostnames are synthetic test inputs only. No test builds an APK or
 // contacts a hosted service; real deployment has no configured origin yet.
@@ -60,4 +60,21 @@ test('CLI fails closed without printing submitted credentials', () => {
   assert.doesNotMatch(result.stderr, /do-not-display/);
   const missing = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(missing.status, 1);
+});
+
+test('production preflight detects a healthy database behind a broken HTTPS proxy or unprotected API', async () => {
+  const run = (privateResponse) => verifyApiAuthReadiness(publicInput, async (url, options) => {
+    assert.deepEqual(options.headers, { Accept: 'application/json' });
+    assert.equal(options.redirect, 'manual');
+    if (url.endsWith('/health')) return { status: 200, json: async () => ({ status: 'ok' }) };
+    assert.equal(url, `${publicInput}/api/v1/state`);
+    return privateResponse;
+  });
+  await run({ status: 401, json: async () => ({ error: { code: 'unauthorized' } }) });
+  for (const response of [
+    { status: 426, json: async () => ({ error: { code: 'https_required' } }) },
+    { status: 200, json: async () => ({ state: {} }) },
+    { status: 302, json: async () => ({ error: { code: 'unauthorized' } }) },
+    { status: 401, json: async () => ({ error: { code: 'different_failure' } }) },
+  ]) await assert.rejects(run(response), /authentication readiness failed/);
 });

@@ -34,9 +34,25 @@ String _cloudError(BuildContext context, String code) =>
       'email_exists' => 'cloudEmailExists',
       'invalid_email' => 'cloudInvalidEmail',
       'weak_password' => 'cloudPasswordRule',
+      'invalid_reset_token' => 'cloudResetInvalid',
+      'password_reset_unavailable' => 'cloudResetUnavailable',
+      'password_reset_sent' => 'cloudResetSent',
+      'password_reset_complete' => 'cloudResetComplete',
+      'google_canceled' => 'cloudGoogleCanceled',
+      'google_not_configured' ||
+      'google_not_supported' => 'cloudGoogleUnavailable',
+      'google_configuration' ||
+      'google_sign_in_failed' ||
+      'invalid_google_token' => 'cloudGoogleConfiguration',
+      'google_link_required' => 'cloudGoogleLinkRequired',
+      'google_email_mismatch' => 'cloudGoogleEmailMismatch',
+      'google_already_linked' => 'cloudGoogleAlreadyLinked',
       'rate_limited' => 'cloudRateLimited',
       'network_error' => 'cloudNetworkError',
-      'service_unavailable' => 'cloudServerUnavailable',
+      'service_unavailable' ||
+      'https_required' ||
+      'invalid_response' ||
+      'not_found' => 'cloudServerUnavailable',
       'unauthorized' || 'session_expired' => 'cloudSessionExpired',
       'revision_conflict' => 'cloudConflict',
       'cloud_queue_full' => 'cloudQueueFull',
@@ -84,13 +100,19 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
   final _form = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  final _resetCode = TextEditingController();
   bool _register = false;
+  bool _resetMode = false;
+  bool _resetSent = false;
   bool _hidePassword = true;
   bool _exporting = false;
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _confirmPassword.dispose();
+    _resetCode.dispose();
     super.dispose();
   }
 
@@ -102,6 +124,33 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
         controller.user != null &&
         controller.status != CloudSyncStatus.sessionExpired) {
       _password.clear();
+      _confirmPassword.clear();
+    }
+  }
+
+  Future<void> _reset(CloudSyncController controller) async {
+    if (!_form.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    if (_resetSent) {
+      await controller.completePasswordReset(
+        _email.text,
+        _resetCode.text,
+        _password.text,
+      );
+      if (mounted && controller.errorCode == 'password_reset_complete') {
+        setState(() {
+          _resetMode = false;
+          _resetSent = false;
+          _password.clear();
+          _confirmPassword.clear();
+          _resetCode.clear();
+        });
+      }
+    } else {
+      await controller.requestPasswordReset(_email.text);
+      if (mounted && controller.errorCode == 'password_reset_sent') {
+        setState(() => _resetSent = true);
+      }
     }
   }
 
@@ -160,6 +209,7 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                         if (controller.user != null)
                           Text(
                             controller.user!.email,
+                            textDirection: TextDirection.ltr,
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         Text(cloudStatusText(context, controller)),
@@ -189,11 +239,153 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                   child: Text(
                     _cloudError(context, controller.errorCode!),
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                      color: switch (controller.errorCode) {
+                        'password_reset_sent' || 'password_reset_complete' =>
+                          Theme.of(context).colorScheme.primary,
+                        _ => Theme.of(context).colorScheme.error,
+                      },
                     ),
                   ),
                 ),
-              if (signIn && controller.configured) ...[
+              if (signIn && controller.configured && _resetMode) ...[
+                const SizedBox(height: 24),
+                Text(
+                  context.plannerText(
+                    _resetSent ? 'cloudResetCodeInfo' : 'cloudResetRequestInfo',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Form(
+                  key: _form,
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        key: const ValueKey('cloud-email'),
+                        enabled: !controller.busy,
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.email],
+                        textDirection: TextDirection.ltr,
+                        decoration: InputDecoration(
+                          labelText: context.plannerText('cloudEmail'),
+                          prefixIcon: const Icon(Icons.mail_outline),
+                        ),
+                        validator: (value) =>
+                            value == null ||
+                                value.trim().length > 254 ||
+                                !RegExp(
+                                  r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                                ).hasMatch(value.trim())
+                            ? context.plannerText('cloudInvalidEmail')
+                            : null,
+                      ),
+                      if (_resetSent) ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          key: const ValueKey('cloud-reset-code'),
+                          enabled: !controller.busy,
+                          controller: _resetCode,
+                          textDirection: TextDirection.ltr,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          decoration: InputDecoration(
+                            labelText: context.plannerText('cloudResetCode'),
+                            prefixIcon: const Icon(Icons.password_outlined),
+                          ),
+                          validator: (value) =>
+                              value == null || value.trim().length < 32
+                              ? context.plannerText('cloudResetInvalid')
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          key: const ValueKey('cloud-password'),
+                          enabled: !controller.busy,
+                          controller: _password,
+                          obscureText: _hidePassword,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          autofillHints: const [AutofillHints.newPassword],
+                          decoration: InputDecoration(
+                            labelText: context.plannerText('cloudPassword'),
+                            helperText: context.plannerText(
+                              'cloudPasswordRule',
+                            ),
+                            helperMaxLines: 4,
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              tooltip: context.plannerText(
+                                _hidePassword
+                                    ? 'cloudShowPassword'
+                                    : 'cloudHidePassword',
+                              ),
+                              onPressed: controller.busy
+                                  ? null
+                                  : () => setState(
+                                      () => _hidePassword = !_hidePassword,
+                                    ),
+                              icon: Icon(
+                                _hidePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                            ),
+                          ),
+                          validator: (value) =>
+                              value == null ||
+                                  value.runes.length < 12 ||
+                                  utf8.encode(value).length > 72
+                              ? context.plannerText('cloudPasswordRule')
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          key: const ValueKey('cloud-confirm-password'),
+                          enabled: !controller.busy,
+                          controller: _confirmPassword,
+                          obscureText: _hidePassword,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          autofillHints: const [AutofillHints.newPassword],
+                          decoration: InputDecoration(
+                            labelText: context.plannerText(
+                              'cloudConfirmPassword',
+                            ),
+                            prefixIcon: const Icon(Icons.lock_outline),
+                          ),
+                          validator: (value) => value != _password.text
+                              ? context.plannerText('cloudPasswordsDoNotMatch')
+                              : null,
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          key: const ValueKey('cloud-reset-submit'),
+                          onPressed: controller.busy
+                              ? null
+                              : () => _reset(controller),
+                          child: Text(
+                            context.plannerText('cloudResetPassword'),
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: controller.busy
+                            ? null
+                            : () => setState(() {
+                                _resetMode = false;
+                                _resetSent = false;
+                                _resetCode.clear();
+                              }),
+                        child: Text(context.plannerText('cloudSignIn')),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (signIn && controller.configured && !_resetMode) ...[
                 const SizedBox(height: 24),
                 Form(
                   key: _form,
@@ -202,6 +394,7 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                       children: [
                         TextFormField(
                           key: const ValueKey('cloud-email'),
+                          enabled: !controller.busy,
                           controller: _email,
                           keyboardType: TextInputType.emailAddress,
                           autofillHints: const [AutofillHints.username],
@@ -222,6 +415,7 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                         const SizedBox(height: 16),
                         TextFormField(
                           key: const ValueKey('cloud-password'),
+                          enabled: !controller.busy,
                           controller: _password,
                           obscureText: _hidePassword,
                           enableSuggestions: false,
@@ -239,10 +433,16 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                             helperMaxLines: 4,
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              tooltip: context.plannerText('cloudPassword'),
-                              onPressed: () => setState(
-                                () => _hidePassword = !_hidePassword,
+                              tooltip: context.plannerText(
+                                _hidePassword
+                                    ? 'cloudShowPassword'
+                                    : 'cloudHidePassword',
                               ),
+                              onPressed: controller.busy
+                                  ? null
+                                  : () => setState(
+                                      () => _hidePassword = !_hidePassword,
+                                    ),
                               icon: Icon(
                                 _hidePassword
                                     ? Icons.visibility_outlined
@@ -258,6 +458,29 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                               ? context.plannerText('cloudPasswordRule')
                               : null,
                         ),
+                        if (_register) ...[
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            key: const ValueKey('cloud-confirm-password'),
+                            enabled: !controller.busy,
+                            controller: _confirmPassword,
+                            obscureText: _hidePassword,
+                            enableSuggestions: false,
+                            autocorrect: false,
+                            autofillHints: const [AutofillHints.newPassword],
+                            decoration: InputDecoration(
+                              labelText: context.plannerText(
+                                'cloudConfirmPassword',
+                              ),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                            ),
+                            validator: (value) => value != _password.text
+                                ? context.plannerText(
+                                    'cloudPasswordsDoNotMatch',
+                                  )
+                                : null,
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         SizedBox(
                           width: double.infinity,
@@ -276,12 +499,48 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                         TextButton(
                           onPressed: controller.busy
                               ? null
-                              : () => setState(() => _register = !_register),
+                              : () => setState(() {
+                                  _register = !_register;
+                                  _confirmPassword.clear();
+                                }),
                           child: Text(
                             context.plannerText(
                               _register ? 'cloudSignIn' : 'cloudRegister',
                             ),
                           ),
+                        ),
+                        if (!_register)
+                          TextButton(
+                            onPressed: controller.busy
+                                ? null
+                                : () => setState(() {
+                                    _resetMode = true;
+                                    _resetSent = false;
+                                    _password.clear();
+                                  }),
+                            child: Text(
+                              context.plannerText('cloudForgotPassword'),
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            key: const ValueKey('cloud-google-submit'),
+                            onPressed: controller.busy
+                                ? null
+                                : controller.signInWithGoogle,
+                            icon: const Icon(Icons.account_circle_outlined),
+                            label: Text(
+                              context.plannerText('cloudGoogleSignIn'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          context.plannerText('cloudPrivacy'),
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
@@ -293,7 +552,7 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                 FilledButton.icon(
                   onPressed: controller.busy || !controller.configured
                       ? null
-                      : controller.synchronize,
+                      : controller.retryNow,
                   icon: const Icon(Icons.sync),
                   label: Text(context.plannerText('cloudSyncNow')),
                 ),
@@ -314,6 +573,14 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                           },
                     icon: const Icon(Icons.cloud_download_outlined),
                     label: Text(context.plannerText('cloudRestoreCloud')),
+                  ),
+                ],
+                if (controller.user != null && !controller.user!.hasGoogle) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: controller.busy ? null : controller.linkGoogle,
+                    icon: const Icon(Icons.account_circle_outlined),
+                    label: Text(context.plannerText('cloudGoogleLink')),
                   ),
                 ],
               ],

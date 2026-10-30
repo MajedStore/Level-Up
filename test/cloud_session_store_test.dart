@@ -34,4 +34,19 @@ void main() {
       expect(await archive.read('unknown'), isNull);
     },
   );
+  test(
+    'corrupt saved credentials are cleared without losing encrypted drafts',
+    () async {
+      final archives = CloudSecureArchiveStore();
+      await archives.write('owner', '{"pending":true}');
+      const storage = FlutterSecureStorage();
+      await storage.write(
+        key: 'levelup.cloud.session.v1',
+        value: '{"accessToken":123}',
+      );
+      expect(await CloudSecureSessionStore().read(), isNull);
+      expect(await storage.read(key: 'levelup.cloud.session.v1'), isNull);
+      expect(await archives.read('owner'), '{"pending":true}');
+    },
+  );
 }

@@ -5,18 +5,39 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:streak/services/cloud_models.dart';
 
 class CloudUser {
-  const CloudUser({required this.id, required this.email});
+  const CloudUser({
+    required this.id,
+    required this.email,
+    this.hasPassword = true,
+    this.hasGoogle = false,
+  });
   final String id;
   final String email;
+  final bool hasPassword;
+  final bool hasGoogle;
   factory CloudUser.fromMap(Map<String, dynamic> value) {
     final id = value['id'];
     final email = value['email'];
     if (id is! String || id.isEmpty || email is! String || email.isEmpty) {
       throw const FormatException('Invalid account.');
     }
-    return CloudUser(id: id, email: email);
+    return CloudUser(
+      id: id,
+      email: email,
+      hasPassword: value['hasPassword'] is bool
+          ? value['hasPassword'] as bool
+          : true,
+      hasGoogle: value['hasGoogle'] is bool
+          ? value['hasGoogle'] as bool
+          : false,
+    );
   }
-  Map<String, dynamic> toMap() => {'id': id, 'email': email};
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'email': email,
+    'hasPassword': hasPassword,
+    'hasGoogle': hasGoogle,
+  };
 }
 
 class CloudSession {
@@ -31,25 +52,40 @@ class CloudSession {
   final String refreshToken;
   final DateTime expiresAt;
   String get ownerId => user.id;
+  CloudSession withUser(CloudUser value) => CloudSession(
+    user: value,
+    accessToken: accessToken,
+    refreshToken: refreshToken,
+    expiresAt: expiresAt,
+  );
 
   factory CloudSession.fromMap(Map<String, dynamic> value, {DateTime? now}) {
     final access = value['accessToken'];
     final refresh = value['refreshToken'];
+    final user = value['user'];
+    final expiresIn = value['expiresIn'];
+    final savedExpiry = value['expiresAt'];
     if (access is! String ||
         access.isEmpty ||
+        access.length > 16384 ||
+        access.contains(RegExp(r'[\r\n]')) ||
         refresh is! String ||
-        refresh.isEmpty) {
+        refresh.isEmpty ||
+        refresh.length > 256 ||
+        user is! Map ||
+        (savedExpiry is! String &&
+            (expiresIn is! int || expiresIn < 1 || expiresIn > 3600))) {
       throw const FormatException('Invalid session.');
     }
+    final expiresAt = savedExpiry is String
+        ? DateTime.tryParse(savedExpiry)
+        : (now ?? DateTime.now()).add(Duration(seconds: expiresIn as int));
+    if (expiresAt == null) throw const FormatException('Invalid session.');
     return CloudSession(
-      user: CloudUser.fromMap(cloudMap(value['user'] as Map)),
+      user: CloudUser.fromMap(cloudMap(user)),
       accessToken: access,
       refreshToken: refresh,
-      expiresAt: value['expiresAt'] is String
-          ? DateTime.parse(value['expiresAt'] as String)
-          : (now ?? DateTime.now()).add(
-              Duration(seconds: value['expiresIn'] as int),
-            ),
+      expiresAt: expiresAt,
     );
   }
   Map<String, dynamic> toMap() => {
@@ -81,7 +117,19 @@ class CloudSecureSessionStore implements CloudSessionStore {
   Future<CloudSession?> read() async {
     final value = await _storage.read(key: _key);
     if (value == null) return null;
-    return CloudSession.fromMap(cloudMap(jsonDecode(value) as Map));
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! Map) throw const FormatException('Invalid session.');
+      return CloudSession.fromMap(cloudMap(decoded));
+    } on FormatException {
+      // Discard only the corrupt credential value. Owner drafts live under
+      // separate keys and will be isolated by guardSession before UI startup.
+      await clear();
+      return null;
+    } on TypeError {
+      await clear();
+      return null;
+    }
   }
 
   @override

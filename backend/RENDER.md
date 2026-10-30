@@ -12,10 +12,11 @@ read-only `ping` to the configured Atlas database succeeded. No initialization,
 collection/index changes, account registration or user-data writes were run
 against Atlas during that check.
 
-This verifies connectivity from this computer. Render has different outbound
-addresses, so it does **not** establish that Render is deployed or connected.
-No real Render service URL has been supplied. Live Render authentication,
-cloud writes and phone restore remain to be tested after deployment.
+That earlier check verified connectivity from this computer. The subsequently
+supplied `https://level-up-5nmw.onrender.com/health` also returns 200 with a
+successful database ping. Live authentication and writes remain blocked by the
+deployed HTTPS proxy configuration described below; no production test accounts
+or user records were created during diagnosis.
 
 Local verification after the preparation changes:
 
@@ -98,6 +99,18 @@ protected; direct insecure API requests are rejected. If you add another proxy
 or CDN, review the exact network path before changing the hop count. Do not set
 unrestricted proxy trust.
 
+### Optional authentication services
+
+| Variable | When configured | Handling |
+| --- | --- | --- |
+| `GOOGLE_OAUTH_WEB_CLIENT_ID` | Google Sign-In | The Web OAuth client ID accepted by the server when it verifies Android-issued Google ID tokens. It is not a client secret. The same identifier must be supplied to the Android build as `LEVEL_UP_GOOGLE_SERVER_CLIENT_ID`. |
+| `RESEND_API_KEY` + `EMAIL_FROM` | Password reset | Both are required. `EMAIL_FROM` must be a Resend-verified sender. The API stores only a reset-code hash; generic acceptance confirms the request, including provider failure, and never promises delivery. |
+
+Keep the Resend API key in Render's secret manager. Do not set a Google OAuth
+client secret: this native ID-token-verification design does not use one.
+Detailed Google Cloud, APK signing fingerprint and email-sender setup is in
+[the authentication guide](../docs/AUTH_CONFIGURATION.md).
+
 `GET /health` is a narrow public readiness endpoint that also works for Render's
 internal HTTP probe. It performs only a database ping, responds with
 `{"status":"ok"}` on success and a safe 503 error on failure, and has a
@@ -129,6 +142,26 @@ A connection/ping does not prove write privileges or exercise transaction
 workflows. Verify the deployed app against the existing database after the
 service is reachable, without resetting it or replacing existing records.
 
+## Existing-service diagnosis (30 October 2026)
+
+The supplied public origin `https://level-up-5nmw.onrender.com` currently
+returns `200 {"status":"ok"}` from `/health`, so its configured process can
+reach the database. A credential-free `GET /api/v1/state` returned
+`426 https_required`, where a public HTTPS request should reach authentication
+and return `401 unauthorized`. This means the currently deployed service is not
+trusting Render's forwarded HTTPS hop (or is running an earlier source/env
+configuration). It is the shared root cause of registration, sign-in and sync
+failure; it is not evidence of an Atlas outage.
+
+Set `TRUST_PROXY_HOPS=1` in that service's Render Environment page and deploy
+the current backend source. The current source also infers one hop from
+Render's `RENDER` environment marker if no explicit value exists. After the
+deploy, run the safe unauthenticated command below and require `401`, not `426`:
+
+```powershell
+curl.exe --silent --show-error --max-time 30 -o NUL -w "state_unauth=%{http_code}`n" https://level-up-5nmw.onrender.com/api/v1/state
+```
+
 ## Deployment verification
 
 1. Save the Render environment variables and Atlas network entries, then deploy.
@@ -149,9 +182,9 @@ service is reachable, without resetting it or replacing existing records.
    same account on a fresh installation or separate test device. Unsynchronized
    local-only records are not protected by cloud storage.
 
-The final APK's real production URL cannot be prepared until the Render URL is
-known. No production address, signing key or app version was invented or changed
-by this backend preparation.
+The final release must embed the supplied origin and, for Google, the configured
+Web OAuth client ID. A distributable release remains pending the intended
+existing release signing identity and external authentication configuration.
 
 ## References
 

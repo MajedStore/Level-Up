@@ -25,3 +25,9 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: GOOGLE_OAUTH_WEB_CLIENT_ID
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

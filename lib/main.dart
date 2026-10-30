@@ -40,6 +40,7 @@ import 'package:streak/services/planner_repository.dart';
 import 'package:streak/services/cloud_api.dart';
 import 'package:streak/services/cloud_session_store.dart';
 import 'package:streak/services/cloud_sync_controller.dart';
+import 'package:streak/services/google_sign_in_service.dart';
 import 'package:streak/services/native_cloud_planner_cache.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:streak/services/focus_service.dart';
@@ -215,6 +216,7 @@ void _run() {
               api: CloudHttpApi(),
               cache: _cloudCache,
               sessionStore: _cloudSessions,
+              googleIdTokenProvider: _googleIdTokens,
               exportDraft: _cloudCache.exportDraft,
               onApplied: _reloadAccountCaches,
             );
@@ -256,6 +258,7 @@ void _run() {
 const _appChannel = MethodChannel('streak/app_icon');
 
 final _cloudSessions = CloudSecureSessionStore();
+final _googleIdTokens = GoogleSignInService();
 CloudSyncController? _cloud;
 final _cloudCache = NativeCloudPlannerCache(
   archives: CloudSecureArchiveStore(),

@@ -20,8 +20,16 @@ abstract interface class CloudApi {
   bool get configured;
   Future<CloudSession> register(String email, String password);
   Future<CloudSession> login(String email, String password);
+  Future<CloudSession> google(String idToken);
   Future<CloudSession> refresh(String refreshToken);
   Future<void> logout(String refreshToken);
+  Future<CloudUser> linkGoogle(String accessToken, String idToken);
+  Future<void> requestPasswordReset(String email);
+  Future<void> completePasswordReset(
+    String email,
+    String token,
+    String password,
+  );
   Future<CloudSnapshot> getState(String accessToken);
   Future<CloudSnapshot> sync(String accessToken, CloudMutation mutation);
 }
@@ -55,6 +63,7 @@ class CloudHttpApi implements CloudApi {
         uri.userInfo.isNotEmpty ||
         uri.hasQuery ||
         uri.hasFragment ||
+        (uri.path.isNotEmpty && uri.path != '/') ||
         (uri.scheme != 'https' && !(allowInsecure && uri.scheme == 'http'))) {
       throw const CloudApiException('invalid_configuration');
     }
@@ -132,17 +141,30 @@ class CloudHttpApi implements CloudApi {
     }
   }
 
-  Future<CloudSession> _auth(String action, Map<String, dynamic> body) async =>
-      CloudSession.fromMap(
-        await _request('POST', 'api/v1/auth/$action', body: body),
-        now: _clock(),
-      );
+  T _decode<T>(T Function() parser) {
+    try {
+      return parser();
+    } on FormatException {
+      throw const CloudApiException('invalid_response');
+    } on TypeError {
+      throw const CloudApiException('invalid_response');
+    }
+  }
+
+  Future<CloudSession> _auth(String action, Map<String, dynamic> body) async {
+    final value = await _request('POST', 'api/v1/auth/$action', body: body);
+    return _decode(() => CloudSession.fromMap(value, now: _clock()));
+  }
+
   @override
   Future<CloudSession> register(String email, String password) =>
       _auth('register', {'email': email.trim(), 'password': password});
   @override
   Future<CloudSession> login(String email, String password) =>
       _auth('login', {'email': email.trim(), 'password': password});
+  @override
+  Future<CloudSession> google(String idToken) =>
+      _auth('google', {'idToken': idToken});
   @override
   Future<CloudSession> refresh(String refreshToken) =>
       _auth('refresh', {'refreshToken': refreshToken});
@@ -156,21 +178,63 @@ class CloudHttpApi implements CloudApi {
   }
 
   @override
-  Future<CloudSnapshot> getState(String accessToken) async =>
-      CloudSnapshot.fromMap(
-        await _request('GET', 'api/v1/state', token: accessToken),
-      );
+  Future<CloudUser> linkGoogle(String accessToken, String idToken) async {
+    final value = await _request(
+      'POST',
+      'api/v1/auth/google/link',
+      token: accessToken,
+      body: {'idToken': idToken},
+    );
+    final user = value['user'];
+    if (user is! Map) throw const CloudApiException('invalid_response');
+    return _decode(() => CloudUser.fromMap(cloudMap(user)));
+  }
+
+  @override
+  Future<void> requestPasswordReset(String email) async {
+    await _request(
+      'POST',
+      'api/v1/auth/password-reset/request',
+      body: {'email': email.trim()},
+    );
+  }
+
+  @override
+  Future<void> completePasswordReset(
+    String email,
+    String token,
+    String password,
+  ) async {
+    await _request(
+      'POST',
+      'api/v1/auth/password-reset/confirm',
+      body: {
+        'email': email.trim(),
+        'token': token.trim(),
+        'password': password,
+      },
+    );
+  }
+
+  @override
+  Future<CloudSnapshot> getState(String accessToken) async {
+    final value = await _request('GET', 'api/v1/state', token: accessToken);
+    return _decode(() => CloudSnapshot.fromMap(value));
+  }
+
   @override
   Future<CloudSnapshot> sync(
     String accessToken,
     CloudMutation mutation,
-  ) async => CloudSnapshot.fromMap(
-    await _request(
+  ) async {
+    final value = await _request(
       'POST',
       'api/v1/sync',
       token: accessToken,
       body: mutation.toMap(),
-    ),
-  );
+    );
+    return _decode(() => CloudSnapshot.fromMap(value));
+  }
+
   void close() => _client.close(force: true);
 }

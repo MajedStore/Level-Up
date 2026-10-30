@@ -325,8 +325,11 @@ This first cloud version has explicit revision conflicts, ordered full-state
 checkpoints and bounded payloads. Offline deadline-sensitive actions arriving
 late may be rejected by server time and require explicit reconciliation. Server
 deadlines catch up on authenticated reads/writes; exact midnight execution is
-not promised. Email verification, password reset, account deletion, shared
-rate-limit storage for multiple API replicas and a server cron worker are not
-implemented. Legacy habit/focus tools remain isolated device-local features.
+not promised. Email verification, account deletion, shared rate-limit storage
+for multiple API replicas and a server cron worker are not implemented.
+Password reset now has hashed, single-use 30-minute codes and session
+revocation, but is intentionally unavailable until its documented Resend sender
+configuration is supplied. Legacy habit/focus tools remain isolated device-local
+features.
 Only successfully acknowledged cloud data can be restored after local storage
 is cleared; unsynced local drafts do not survive uninstall/device data deletion.

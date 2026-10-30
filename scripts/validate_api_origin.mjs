@@ -48,15 +48,37 @@ export async function verifyApiHealth(origin, request = fetch) {
   }
 }
 
+/** Detect a healthy database behind a misconfigured HTTPS proxy without
+ * registering an account or sending credentials. The expected private-route
+ * result is specifically unauthorized, never successful or https_required.
+ */
+export async function verifyApiAuthReadiness(origin, request = fetch) {
+  const validated = validateApiOrigin(origin);
+  await verifyApiHealth(validated, request);
+  try {
+    const response = await request(`${validated}/api/v1/state`, {
+      method: 'GET', redirect: 'manual',
+      headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20_000),
+    });
+    const body = await response.json();
+    if (response.status !== 401 || body?.error?.code !== 'unauthorized') {
+      throw new Error('not ready');
+    }
+  } catch {
+    throw new Error('API authentication readiness failed. Verify the deployed backend and TRUST_PROXY_HOPS=1 for the direct Render proxy before building.');
+  }
+}
+
 const invoked = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invoked) {
   try {
     const args = process.argv.slice(2);
-    if (args.length < 1 || args.length > 2 || (args.length === 2 && args[1] !== '--health')) {
-      throw new Error('Usage: node scripts/validate_api_origin.mjs HTTPS_ORIGIN [--health]');
+    if (args.length < 1 || args.length > 2 || (args.length === 2 && !['--health', '--auth-readiness'].includes(args[1]))) {
+      throw new Error('Usage: node scripts/validate_api_origin.mjs HTTPS_ORIGIN [--health|--auth-readiness]');
     }
     const origin = validateApiOrigin(args[0]);
     if (args[1] === '--health') await verifyApiHealth(origin);
+    if (args[1] === '--auth-readiness') await verifyApiAuthReadiness(origin);
     process.stdout.write(`${origin}\n`);
   } catch (error) {
     // Errors deliberately omit the supplied value and any server response body.

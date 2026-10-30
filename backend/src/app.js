@@ -19,9 +19,20 @@ const canonical = (value) =>
         )
       : value;
 
-export function createApp({ store, config, hashCost = 12, authLimit = 20 }) {
+export function createApp({
+  store,
+  config,
+  hashCost = 12,
+  authLimit = 20,
+  googleVerifier,
+  passwordResetSender,
+}) {
   const app = express(),
-    auth = new AuthService(store, config, { hashCost });
+    auth = new AuthService(store, config, {
+      hashCost,
+      googleVerifier,
+      passwordResetSender,
+    });
   app.disable("x-powered-by");
   app.set("trust proxy", config.TRUST_PROXY_HOPS);
   app.use(helmet());
@@ -114,6 +125,15 @@ export function createApp({ store, config, hashCost = 12, authLimit = 20 }) {
   app.post("/api/v1/auth/login", authenticationLimit, async (req, res) =>
     res.json(await auth.login(req.body)),
   );
+  app.post("/api/v1/auth/google", authenticationLimit, async (req, res) =>
+    res.json(await auth.googleLogin(req.body)),
+  );
+  app.post("/api/v1/auth/password-reset/request", authenticationLimit, async (req, res) =>
+    res.status(202).json(await auth.requestPasswordReset(req.body)),
+  );
+  app.post("/api/v1/auth/password-reset/confirm", authenticationLimit, async (req, res) =>
+    res.json(await auth.completePasswordReset(req.body)),
+  );
   app.post("/api/v1/auth/refresh", authenticationLimit, async (req, res) =>
     res.json(await auth.refresh(req.body)),
   );
@@ -125,6 +145,9 @@ export function createApp({ store, config, hashCost = 12, authLimit = 20 }) {
     req.ownerId = await auth.verify(req.get("Authorization"));
     next();
   });
+  app.post("/api/v1/auth/google/link", authenticationLimit, async (req, res) =>
+    res.json(await auth.linkGoogle(req.ownerId, req.body)),
+  );
   app.get("/api/v1/state", async (req, res) =>
     res.json(await store.get(req.ownerId)),
   );

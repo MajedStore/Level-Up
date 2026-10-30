@@ -20,6 +20,7 @@ const maps = {
 const allCollections = [
   "users",
   "sessions",
+  "passwordResets",
   "accountSettings",
   "syncMutations",
   "routineExclusions",
@@ -62,6 +63,8 @@ export class PlannerStore {
             ownerId: { bsonType: "string" },
             email: { bsonType: "string" },
             passwordHash: { bsonType: "string" },
+            googleSubject: { bsonType: "string" },
+            passwordEnabled: { bsonType: "bool" },
           },
         },
       };
@@ -82,11 +85,31 @@ export class PlannerStore {
     await this.db
       .collection("users")
       .createIndex({ email: 1 }, { unique: true, name: "unique_email" });
+    await this.db.collection("users").createIndex(
+      { googleSubject: 1 },
+      {
+        unique: true,
+        sparse: true,
+        name: "unique_google_subject",
+      },
+    );
     await this.db
       .collection("sessions")
       .createIndex(
         { tokenHash: 1 },
         { unique: true, name: "unique_refresh_hash" },
+      );
+    await this.db
+      .collection("passwordResets")
+      .createIndex(
+        { tokenHash: 1 },
+        { unique: true, name: "unique_password_reset_hash" },
+      );
+    await this.db
+      .collection("passwordResets")
+      .createIndex(
+        { expiresAt: 1 },
+        { expireAfterSeconds: 0, name: "expired_password_resets" },
       );
     await this.db
       .collection("sessions")

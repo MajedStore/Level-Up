@@ -32,3 +32,10 @@ test('Windows helper fails closed on local URL before signing or Flutter work', 
   assert.match(result.stderr, /Production API validation failed|Use the actual public HTTPS origin/);
   assert.doesNotMatch(result.stderr, /must-not-execute-flutter/);
 });
+
+test('Windows helper rejects a malformed Google server client ID before Flutter work', { skip: process.platform !== 'win32' }, () => {
+  const result = run(['-ApiBaseUrl', 'https://levelup-production-verified.onrender.com', '-GoogleServerClientId', 'not-a-google-client-id', '-PreflightOnly', '-AllowDebugSigning', '-FlutterPath', 'must-not-execute-flutter']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /GoogleServerClientId must be the Web OAuth client ID/);
+  assert.doesNotMatch(result.stderr, /must-not-execute-flutter/);
+});

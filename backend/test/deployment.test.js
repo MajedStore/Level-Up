@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "../src/config.js";
 import { createApp } from "../src/app.js";
 
@@ -17,8 +19,48 @@ test("production binds all interfaces and honors Render PORT while development s
   });
   assert.equal(production.HOST, "0.0.0.0");
   assert.equal(production.PORT, 10000);
+  assert.equal(
+    loadConfig({ ...base, NODE_ENV: "production", RENDER: "true" })
+      .TRUST_PROXY_HOPS,
+    1,
+  );
+  assert.equal(
+    loadConfig({
+      ...base,
+      NODE_ENV: "production",
+      RENDER: "true",
+      TRUST_PROXY_HOPS: "0",
+    }).TRUST_PROXY_HOPS,
+    0,
+  );
   assert.equal(loadConfig(base).HOST, "127.0.0.1");
+  assert.equal(loadConfig({ ...base, RENDER: "false" }).TRUST_PROXY_HOPS, 0);
   assert.equal(loadConfig({ ...base, HOST: "127.0.0.2" }).HOST, "127.0.0.2");
+});
+
+test("optional identity and email configuration fails safely when malformed or incomplete", () => {
+  assert.throws(() => loadConfig({ ...base, GOOGLE_OAUTH_WEB_CLIENT_ID: "wrong-client" }), /GOOGLE_OAUTH_WEB_CLIENT_ID/);
+  assert.throws(() => loadConfig({ ...base, RESEND_API_KEY: "synthetic-test-key" }), /together/);
+  assert.throws(() => loadConfig({ ...base, EMAIL_FROM: "test@example.test" }), /together/);
+  assert.throws(() => loadConfig({ ...base, RESEND_API_KEY: "synthetic-test-key", EMAIL_FROM: "test@example.test\r\nInjected: value" }), /single sender/);
+});
+
+test("startup database failure exits before opening the API and omits connection details", () => {
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL("../src/server.js", import.meta.url))], {
+    encoding: "utf8",
+    timeout: 15000,
+    env: {
+      PATH: process.env.PATH,
+      SystemRoot: process.env.SystemRoot,
+      NODE_ENV: "test",
+      MONGODB_URI: "invalid-connection-with-private-sentinel",
+      JWT_SECRET: "local-test-key-with-at-least-thirty-two-bytes",
+    },
+  });
+  assert.equal(result.status, 1);
+  assert.doesNotMatch(result.stdout, /listening/i);
+  assert.match(result.stderr, /Server startup failed: MongoParseError/);
+  assert.doesNotMatch(result.stderr, /private-sentinel/);
 });
 
 test("production health accepts an internal HTTP probe while APIs still require HTTPS", async () => {

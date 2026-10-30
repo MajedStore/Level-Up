@@ -6,8 +6,28 @@ import request from "supertest";
 import { PlannerStore } from "../src/store.js";
 import { createApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
+import { ApiError } from "../src/errors.js";
+import { AuthService } from "../src/auth.js";
 import { empty, routine } from "./fixtures.js";
 let replica, client, store, app, config, alice, bob;
+const sentPasswordResets = [];
+const googleVerifier = {
+  async verify(token) {
+    if (token === "google-alice-token-accepted")
+      return { subject: "google-subject-alice", email: "alice@example.test" };
+    if (token === "google-new-token-accepted")
+      return { subject: "google-subject-new", email: "new@example.test" };
+    if (token === "google-other-token-accepted")
+      return { subject: "google-subject-other", email: "other@example.test" };
+    throw new ApiError(401, "invalid_google_token", "Google sign-in could not be verified.");
+  },
+};
+const passwordResetSender = {
+  configured: true,
+  async send(message) {
+    sentPasswordResets.push(message);
+  },
+};
 let clock = new Date("2026-10-29T12:00:00.000Z");
 const password = "A-long-test-password-123";
 const auth = (account) => `Bearer ${account.accessToken}`;
@@ -35,7 +55,14 @@ before(
       MONGODB_URI: replica.getUri(),
       JWT_SECRET: "test-only-random-secret-with-more-than-thirty-two-bytes",
     });
-    app = createApp({ store, config, hashCost: 8, authLimit: 100 });
+    app = createApp({
+      store,
+      config,
+      hashCost: 8,
+      authLimit: 100,
+      googleVerifier,
+      passwordResetSender,
+    });
   },
   { timeout: 240000 },
 );
@@ -336,6 +363,115 @@ test("refresh rotates opaque hashed token and revokes old access; logout revokes
     .set("Authorization", auth(refresh))
     .expect(401);
 });
+test("Google tokens are verified server-side, never auto-merge, and can be explicitly linked", async () => {
+  const linkedAlice = (
+    await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "alice@example.test", password })
+      .expect(200)
+  ).body;
+  await request(app)
+    .post("/api/v1/auth/google")
+    .send({ idToken: "wrong-audience-or-signature" })
+    .expect(401);
+  const created = (
+    await request(app)
+      .post("/api/v1/auth/google")
+      .send({ idToken: "google-new-token-accepted" })
+      .expect(200)
+  ).body;
+  assert.equal(created.user.email, "new@example.test");
+  assert.equal(created.user.hasGoogle, true);
+  assert.equal(created.user.hasPassword, false);
+  const sameProvider = (
+    await request(app)
+      .post("/api/v1/auth/google")
+      .send({ idToken: "google-new-token-accepted" })
+      .expect(200)
+  ).body;
+  assert.equal(sameProvider.user.id, created.user.id);
+  const linkRequired = await request(app)
+    .post("/api/v1/auth/google")
+    .send({ idToken: "google-alice-token-accepted" })
+    .expect(409);
+  assert.equal(linkRequired.body.error.code, "google_link_required");
+  const linked = await request(app)
+    .post("/api/v1/auth/google/link")
+    .set("Authorization", auth(linkedAlice))
+    .send({ idToken: "google-alice-token-accepted" })
+    .expect(200);
+  assert.equal(linked.body.user.id, alice.user.id);
+  assert.equal(linked.body.user.hasGoogle, true);
+  const signedIn = (
+    await request(app)
+      .post("/api/v1/auth/google")
+      .send({ idToken: "google-alice-token-accepted" })
+      .expect(200)
+  ).body;
+  assert.equal(signedIn.user.id, alice.user.id);
+  const mismatch = await request(app)
+    .post("/api/v1/auth/google/link")
+    .set("Authorization", auth(bob))
+    .send({ idToken: "google-other-token-accepted" })
+    .expect(409);
+  assert.equal(mismatch.body.error.code, "google_email_mismatch");
+});
+test("password reset sends no raw token to storage, is single use, and revokes sessions", async () => {
+  const preReset = (
+    await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "alice@example.test", password })
+      .expect(200)
+  ).body;
+  const before = sentPasswordResets.length;
+  await request(app)
+    .post("/api/v1/auth/password-reset/request")
+    .send({ email: "not-an-account@example.test" })
+    .expect(202, { accepted: true });
+  assert.equal(sentPasswordResets.length, before);
+  await request(app)
+    .post("/api/v1/auth/password-reset/request")
+    .send({ email: "alice@example.test" })
+    .expect(202, { accepted: true });
+  const sent = sentPasswordResets.at(-1);
+  assert.equal(sent.email, "alice@example.test");
+  const stored = await store.db
+    .collection("passwordResets")
+    .findOne({ ownerId: alice.user.id, usedAt: null });
+  assert.notEqual(stored.tokenHash, sent.token);
+  await request(app)
+    .post("/api/v1/auth/password-reset/confirm")
+    .send({
+      email: "alice@example.test",
+      token: "f".repeat(64),
+      password: "A-new-long-password-123",
+    })
+    .expect(422);
+  await request(app)
+    .post("/api/v1/auth/password-reset/confirm")
+    .send({
+      email: "alice@example.test",
+      token: sent.token,
+      password: "A-new-long-password-123",
+    })
+    .expect(200, { reset: true });
+  await request(app)
+    .get("/api/v1/state")
+    .set("Authorization", auth(preReset))
+    .expect(401);
+  await request(app)
+    .post("/api/v1/auth/password-reset/confirm")
+    .send({
+      email: "alice@example.test",
+      token: sent.token,
+      password: "A-different-long-password-123",
+    })
+    .expect(422);
+  await request(app)
+    .post("/api/v1/auth/login")
+    .send({ email: "alice@example.test", password: "A-new-long-password-123" })
+    .expect(200);
+});
 test("strict CORS and rate limiting are enabled", async () => {
   await request(app)
     .get("/health")
@@ -351,4 +487,152 @@ test("strict CORS and rate limiting are enabled", async () => {
     .send({ email: "bob@example.test", password })
     .expect(429);
   assert.equal(response.body.error.code, "rate_limited");
+});
+
+test("password-reset delivery failure uses the same public response and invalidates its code", async () => {
+  const failing = createApp({
+    store,
+    config,
+    hashCost: 8,
+    passwordResetSender: {
+      configured: true,
+      async send() { throw new Error("private provider error"); },
+    },
+  });
+  for (const email of ["bob@example.test", "unknown-failure@example.test"]) {
+    const result = await request(failing)
+      .post("/api/v1/auth/password-reset/request")
+      .send({ email })
+      .expect(202);
+    assert.deepEqual(result.body, { accepted: true });
+  }
+  assert.equal(await store.db.collection("passwordResets").countDocuments({
+    ownerId: bob.user.id,
+    usedAt: null,
+  }), 0);
+});
+
+test("password-reset code expiration is enforced before changing credentials", async () => {
+  await request(app)
+    .post("/api/v1/auth/password-reset/request")
+    .send({ email: "bob@example.test" })
+    .expect(202);
+  const sent = sentPasswordResets.at(-1);
+  const previousClock = clock;
+  try {
+    clock = new Date(previousClock.getTime() + 30 * 60 * 1000);
+    await request(app)
+      .post("/api/v1/auth/password-reset/confirm")
+      .send({ email: "bob@example.test", token: sent.token, password: "Another-password-123" })
+      .expect(422);
+  } finally {
+    clock = previousClock;
+  }
+  await request(app)
+    .post("/api/v1/auth/login")
+    .send({ email: "bob@example.test", password })
+    .expect(200);
+});
+
+test("a stale password login cannot create a session after password reset commits", async () => {
+  const account = (
+    await request(app)
+      .post("/api/v1/auth/register")
+      .send({ email: "reset-race@example.test", password })
+      .expect(201)
+  ).body;
+  await request(app)
+    .post("/api/v1/auth/password-reset/request")
+    .send({ email: "reset-race@example.test" })
+    .expect(202);
+  const sent = sentPasswordResets.at(-1);
+  const service = new AuthService(store, config, { hashCost: 8 });
+  const originalIssue = service.issue.bind(service);
+  let reachedIssue, resume;
+  const atIssue = new Promise((resolve) => { reachedIssue = resolve; });
+  const release = new Promise((resolve) => { resume = resolve; });
+  service.issue = async (user, session) => {
+    reachedIssue();
+    await release;
+    return originalIssue(user, session);
+  };
+  const staleLogin = service.login({ email: "reset-race@example.test", password });
+  // Attach the rejection observer before letting the held login finish.
+  const rejected = assert.rejects(staleLogin, { status: 401, code: "invalid_credentials" });
+  await atIssue;
+  try {
+    await request(app)
+      .post("/api/v1/auth/password-reset/confirm")
+      .send({ email: "reset-race@example.test", token: sent.token, password: "Changed-password-123" })
+      .expect(200);
+  } finally {
+    resume();
+  }
+  await rejected;
+  assert.equal(await store.db.collection("sessions").countDocuments({
+    ownerId: account.user.id,
+    revokedAt: null,
+  }), 0);
+});
+
+test("temporary session-storage failure remains a 503 rather than expiring a valid session", async () => {
+  const account = (
+    await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "bob@example.test", password })
+      .expect(200)
+  ).body;
+  const collection = store.db.collection.bind(store.db);
+  store.db.collection = (name, ...args) => name === "sessions"
+    ? { findOne: async () => { throw new Error("temporary database outage"); } }
+    : collection(name, ...args);
+  try {
+    const result = await request(app)
+      .get("/api/v1/state")
+      .set("Authorization", auth(account))
+      .expect(503);
+    assert.equal(result.body.error.code, "service_unavailable");
+    assert.equal(JSON.stringify(result.body).includes("temporary database outage"), false);
+  } finally {
+    store.db.collection = collection;
+  }
+  await request(app).get("/api/v1/state").set("Authorization", auth(account)).expect(200);
+});
+
+test("an existing Google link cannot be silently replaced by another provider subject", async () => {
+  const owner = (
+    await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "alice@example.test", password: "A-new-long-password-123" })
+      .expect(200)
+  ).body;
+  const custom = createApp({
+    store,
+    config,
+    hashCost: 8,
+    googleVerifier: { async verify() { return { email: "alice@example.test", subject: "replacement-provider-subject" }; } },
+  });
+  const result = await request(custom)
+    .post("/api/v1/auth/google/link")
+    .set("Authorization", auth(owner))
+    .send({ idToken: "verified-but-different-subject" })
+    .expect(409);
+  assert.equal(result.body.error.code, "google_already_linked");
+  const stored = await store.db.collection("users").findOne({ _id: owner.user.id });
+  assert.equal(stored.googleSubject, "google-subject-alice");
+});
+
+test("concurrent refresh consumes a token only once and leaves one valid successor", async () => {
+  const account = (
+    await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "bob@example.test", password })
+      .expect(200)
+  ).body;
+  const replies = await Promise.all([1, 2].map(() => request(app)
+    .post("/api/v1/auth/refresh")
+    .send({ refreshToken: account.refreshToken })));
+  assert.deepEqual(replies.map((reply) => reply.status).sort(), [200, 401]);
+  const successor = replies.find((reply) => reply.status === 200).body;
+  await request(app).get("/api/v1/state").set("Authorization", auth(successor)).expect(200);
 });

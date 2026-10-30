@@ -6,7 +6,9 @@ publish_to: 'none'
 version: 3.0.0+22
 
 environment:
-  sdk: ^3.9.2
+  # google_sign_in 7 uses the current Google Identity APIs and requires Dart
+  # 3.11. The repository is verified with Flutter 3.47.7 / Dart 3.13.5.
+  sdk: ^3.11.0
 
 dependencies:
   flutter:
@@ -41,6 +43,7 @@ dependencies:
   wakelock_plus: ^1.5.2
   flip_board: ^1.0.0
   video_player_win: ^3.2.2
+  google_sign_in: 7.2.0
 
 dev_dependencies:
   flutter_test:
