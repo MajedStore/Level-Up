@@ -1,5 +1,9 @@
 # Level Up
 
+For GitHub upload, Render hosting, Atlas network configuration and the final
+cloud-connected Android build, follow [the deployment handoff](docs/DEPLOYMENT.md).
+Private backend credentials stay in local `.env`/Render environment settings.
+
 An Android planner with offline use and optional account sync, built by extending Streak. Routines are separate from
 challenge commitments. Challenge completion earns XP; routine completion does not.
 Create reusable packages with custom categories and nested task groups, select
@@ -413,5 +417,4 @@ help as much as a coffee does.
 Released under the <a href="LICENSE"><b>GNU GPLv3</b></a>, with the <a href="ADDITIONAL_TERMS.md">attribution term</a> of its section 7(b).
 
 </div>
-#   L e v e l - U p  
- 
+# Level-Up

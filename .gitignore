@@ -40,6 +40,31 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Private deployment files, including editor-created copies of .env.
+# The one allowed example must contain placeholders only.
+.env*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+key.properties
+local.properties
+
+# Local application/database caches and archives.
+*.hive
+*.hive.lock
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.db
+*.db-journal
+*.dump
+*.mongodump
+backups/
+
 # Local scratch notes for GitHub issues (not for commit)
 /issues/
 

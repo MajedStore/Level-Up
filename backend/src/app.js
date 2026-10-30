@@ -27,14 +27,6 @@ export function createApp({ store, config, hashCost = 12, authLimit = 20 }) {
   app.use(helmet());
   app.use((req, res, next) => {
     res.set("Cache-Control", "no-store");
-    if (config.NODE_ENV === "production" && !req.secure)
-      return next(
-        new ApiError(
-          426,
-          "https_required",
-          "Use HTTPS to access this service.",
-        ),
-      );
     next();
   });
   app.use(
@@ -55,6 +47,43 @@ export function createApp({ store, config, hashCost = 12, authLimit = 20 }) {
       allowedHeaders: ["Content-Type", "Authorization"],
     }),
   );
+  // Render probes the process over its private HTTP network. Only this exact
+  // read-only readiness route precedes HTTPS enforcement; API routes do not.
+  app.get(/^\/health$/, async (req, res) => {
+    let timer;
+    try {
+      await Promise.race([
+        store.db.command({ ping: 1 }, { maxTimeMS: 2000, timeoutMS: 3000 }),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(
+                new ApiError(
+                  503,
+                  "service_unavailable",
+                  "The service is temporarily unavailable.",
+                ),
+              ),
+            3000,
+          );
+        }),
+      ]);
+      res.json({ status: "ok" });
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+  app.use((req, res, next) => {
+    if (config.NODE_ENV === "production" && !req.secure)
+      return next(
+        new ApiError(
+          426,
+          "https_required",
+          "Use HTTPS to access this service.",
+        ),
+      );
+    next();
+  });
   app.use(express.json({ limit: "2mb", strict: true }));
   const limitMessage = {
     error: {
@@ -78,10 +107,6 @@ export function createApp({ store, config, hashCost = 12, authLimit = 20 }) {
     standardHeaders: "draft-8",
     legacyHeaders: false,
     message: limitMessage,
-  });
-  app.get("/health", async (req, res) => {
-    await store.db.command({ ping: 1 }, { maxTimeMS: 2000 });
-    res.json({ status: "ok" });
   });
   app.post("/api/v1/auth/register", authenticationLimit, async (req, res) =>
     res.status(201).json(await auth.register(req.body)),
@@ -113,51 +138,41 @@ export function createApp({ store, config, hashCost = 12, authLimit = 20 }) {
     res.json(await store.sync(req.ownerId, { ...input, requestHash }));
   });
   app.use((req, res) =>
-    res
-      .status(404)
-      .json({
-        error: { code: "not_found", message: "This endpoint does not exist." },
-      }),
+    res.status(404).json({
+      error: { code: "not_found", message: "This endpoint does not exist." },
+    }),
   );
   app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
     if (error instanceof ApiError)
-      return res
-        .status(error.status)
-        .json({
-          error: { code: error.code, message: error.message },
-          ...error.extra,
-        });
+      return res.status(error.status).json({
+        error: { code: error.code, message: error.message },
+        ...error.extra,
+      });
     if (error.type === "entity.too.large")
-      return res
-        .status(413)
-        .json({
-          error: {
-            code: "validation_failed",
-            message: "The request exceeds the allowed size.",
-          },
-        });
+      return res.status(413).json({
+        error: {
+          code: "validation_failed",
+          message: "The request exceeds the allowed size.",
+        },
+      });
     if (error instanceof SyntaxError && error.status === 400)
-      return res
-        .status(400)
-        .json({
-          error: {
-            code: "validation_failed",
-            message: "The request body must be valid JSON.",
-          },
-        });
+      return res.status(400).json({
+        error: {
+          code: "validation_failed",
+          message: "The request body must be valid JSON.",
+        },
+      });
     // Do not log request bodies, password hashes, tokens, Mongo URIs or personal
     // records. Operational logging can include only this stable category.
     console.error("API request failed:", error.name ?? "Error");
-    res
-      .status(503)
-      .json({
-        error: {
-          code: "service_unavailable",
-          message:
-            "The service is temporarily unavailable. Your changes have not been confirmed.",
-        },
-      });
+    res.status(503).json({
+      error: {
+        code: "service_unavailable",
+        message:
+          "The service is temporarily unavailable. Your changes have not been confirmed.",
+      },
+    });
   });
   return app;
 }

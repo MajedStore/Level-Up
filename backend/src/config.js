@@ -4,7 +4,7 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
-  HOST: z.string().default("127.0.0.1"),
+  HOST: z.string().min(1).optional(),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   MONGODB_URI: z.string().min(1),
   MONGODB_DATABASE: z
@@ -41,5 +41,10 @@ export function loadConfig(env = process.env) {
   ) {
     throw new Error("Production browser origins must use HTTPS.");
   }
-  return { ...value, origins };
+  return {
+    ...value,
+    HOST:
+      value.HOST ?? (value.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1"),
+    origins,
+  };
 }

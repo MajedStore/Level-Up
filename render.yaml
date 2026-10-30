@@ -1,0 +1,27 @@
+# Optional Render Blueprint. Review/create it in Render yourself; this file does
+# not provision resources. Free services idle; choose a non-idling plan in the
+# dashboard for continuous availability. No credentials belong in this file.
+services:
+  - type: web
+    name: level-up-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.15.0
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: MONGODB_DATABASE
+        value: level_up
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false

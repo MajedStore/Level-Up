@@ -6,7 +6,7 @@
   "description": "Level Up authenticated planner API. Based on Streak by InlitX.",
   "license": "GPL-3.0-only",
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=22.18.0 <25"
   },
   "scripts": {
     "dev": "node --watch --env-file-if-exists=.env src/server.js",

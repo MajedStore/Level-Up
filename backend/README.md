@@ -5,6 +5,10 @@ authentication, and authoritative planner rule processing. This is part of the
 existing Level Up application. **Based on Streak by InlitX.** GPL-3.0-only; retain
 the repository's [license](../LICENSE) and [additional terms](../ADDITIONAL_TERMS.md).
 
+For the current GitHub → Render deployment preparation, see
+[RENDER.md](RENDER.md). The latest authorized local Atlas read-only
+connection/ping succeeded; deployment from Render is still pending.
+
 ## Setup
 
 Use Node.js 22.18 or later (verified here with Node 24.15). From `backend/`:
@@ -49,9 +53,12 @@ the configuration, connection, schema initialization, or indexes fail.
    change, and verify the acknowledged record in Atlas. A cluster existing in
    the Atlas console alone is not evidence that the app has connected.
 
-No Atlas credentials were provided in this workspace. Atlas connection and
-production deployment have **not** been verified. Repository integration tests
-use a real, temporary local MongoDB replica set, described below.
+Local Atlas credentials were subsequently supplied in ignored `backend/.env`.
+The deployment preparation verified an actual connection and read-only ping
+from this computer without exposing values or writing user data. A live Render
+deployment, Atlas write permissions and production workflows have **not** been
+verified. Repository integration tests use a real, temporary local MongoDB
+replica set, described below.
 
 Official guidance: [Atlas database users](https://www.mongodb.com/docs/atlas/security-add-mongodb-users/),
 [network access](https://www.mongodb.com/docs/atlas/security/ip-access-list/),
@@ -68,12 +75,12 @@ Official guidance: [Atlas database users](https://www.mongodb.com/docs/atlas/sec
 | `JWT_ISSUER`, `JWT_AUDIENCE` | Expected signed access-token identity |
 | `ACCESS_TOKEN_SECONDS` | Default 900; allowed 60–3600 |
 | `REFRESH_TOKEN_DAYS` | Default 30; allowed 1–90 |
-| `HOST`, `PORT` | Default `127.0.0.1:3000` |
+| `HOST`, `PORT` | Development `127.0.0.1:3000`; production host defaults to `0.0.0.0`; honors platform `PORT` |
 | `NODE_ENV` | `development`, `test`, or `production` |
 | `CORS_ORIGINS` | Optional comma-separated exact browser origins; no wildcard |
 | `TRUST_PROXY_HOPS` | Default 0; set only to the actual trusted proxy count |
 
-Native Android does not need a CORS origin. Production rejects plain HTTP;
+Native Android does not need a CORS origin. Production API routes reject plain HTTP;
 terminate TLS at a trusted reverse proxy and configure its real hop count. Bind
 `HOST=0.0.0.0` when the host/container needs an external listener. Supply secrets
 through the hosting service's secret manager and use `npm ci --omit=dev`, then
@@ -210,7 +217,8 @@ npm run check
 npm audit
 ```
 
-The backend verification run passed **34 tests**, with no skips, and syntax
+The core/cloud implementation verification passed **34 tests**. The additional
+Render preparation verification is recorded in [RENDER.md](RENDER.md). Syntax
 checks passed. `npm audit` reported zero vulnerabilities for the installed
 dependency tree. See `test-backend-final.log` in this directory (ignored local
 execution evidence).

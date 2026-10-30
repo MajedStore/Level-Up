@@ -1,5 +1,10 @@
 # Level Up 3.0.0+22 — accounts, cloud recovery and skip rules
 
+For the later deployment preparation and successful local Atlas connection
+check, see [the current deployment handoff](DEPLOYMENT.md). The release-time
+Atlas configuration status recorded below describes the earlier implementation
+verification before private credentials were supplied.
+
 This release extends the existing Flutter app with an authenticated
 Node.js/Express API backed by MongoDB, a durable local synchronization queue,
 account isolation and package-level task skip penalties. It preserves the

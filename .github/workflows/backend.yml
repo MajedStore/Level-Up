@@ -1,0 +1,43 @@
+name: Backend verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['backend/**', 'render.yaml', 'scripts/**', '.github/workflows/backend.yml']
+  push:
+    branches: [main]
+    paths: ['backend/**', 'render.yaml', 'scripts/**', '.github/workflows/backend.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install reproducible test dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Check repository upload safety
+        run: node scripts/check-upload-safety.mjs
+      - name: Check backend syntax
+        working-directory: backend
+        run: npm run check
+      - name: Test backend with temporary MongoDB
+        working-directory: backend
+        run: npm test
+      - name: Check production dependency vulnerabilities
+        working-directory: backend
+        run: npm audit --omit=dev
+      - name: Test deployment helpers
+        run: node --test scripts/*.test.mjs
