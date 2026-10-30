@@ -1,3 +1,37 @@
+# Level Up
+
+An Android planner with offline use and optional account sync, built by extending Streak. Routines are separate from
+challenge commitments. Challenge completion earns XP; routine completion does not.
+Create reusable packages with custom categories and nested task groups, select
+tomorrow's challenge, and track disclosed rewards and penalties in English or Arabic.
+
+The schedule is a continuous vertical timeline across consecutive days, with
+duration blocks, overlap handling, and a current-time marker. Arabic uses bundled
+Cairo fonts; English retains the existing Latin typography.
+
+The main destinations are Schedule, Challenges and Profile. Reselect Schedule to
+animate back to the current time. The app includes recurring and
+overnight activities; occurrence/series edits; ordered steps and amount targets;
+immutable challenge history; an XP ledger; and Android reminders.
+
+See [the account, MongoDB and skip-penalty report](docs/LEVEL_UP_CLOUD.md) and
+[backend setup guide](backend/README.md) for version 3.0, configuration and verification.
+Atlas credentials and a production HTTPS API must be configured before cloud sync is available.
+The [package and navigation report](docs/LEVEL_UP_PACKAGES.md) covers the 2.9
+builder, migration, UI and verification. The [timeline and typography report](docs/LEVEL_UP_TIMELINE.md)
+records 2.8.0, and the [2.7.0 refactoring report](docs/LEVEL_UP_REFACTOR.md) covers core architecture,
+daily selection, migration and verification. The [earlier development record](docs/LEVEL_UP_DEVELOPMENT.md) preserves baseline
+verification results, data compatibility, limitations, and local run instructions.
+
+Based on Streak by InlitX. GPL-3.0-only, with the attribution term in
+[ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md). Preserve these notices and provide the
+corresponding source when distributing a derivative under the license.
+
+The original upstream documentation is retained below for the preserved habit,
+focus, widget and settings features, accessible from **Profile → Habit & focus tools**.
+
+---
+
 <div align="center">
 
 <img src="assets/banner.png" alt="Streak, a minimal, private, ad-free habit tracker" width="100%" />
@@ -379,3 +413,5 @@ help as much as a coffee does.
 Released under the <a href="LICENSE"><b>GNU GPLv3</b></a>, with the <a href="ADDITIONAL_TERMS.md">attribution term</a> of its section 7(b).
 
 </div>
+#   L e v e l - U p  
+ 
