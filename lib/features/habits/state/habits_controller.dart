@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:streak/features/planner/data/planner_models.dart';
+import 'package:streak/services/planner_repository.dart';
 import 'package:streak/core/database/local_store.dart';
 import 'package:streak/core/extensions/date_extensions.dart';
 import 'package:streak/core/utils/cover_storage.dart';
@@ -44,8 +46,8 @@ class HabitsController extends ChangeNotifier {
     super.notifyListeners();
   }
 
-  List<Habit> get habits => _active ??=
-      _habits.values.where((h) => !h.isArchived).toList()
+  List<Habit> get habits =>
+      _active ??= _habits.values.where((h) => !h.isArchived).toList()
         ..sort((a, b) => a.order.compareTo(b.order));
 
   List<Habit> get withArchived => _every ??= _habits.values.toList();
@@ -59,9 +61,9 @@ class HabitsController extends ChangeNotifier {
   bool get isEmpty => habits.isEmpty;
 
   Map<String, Habit> get asMap => {
-        for (final entry in _habits.entries)
-          if (!entry.value.isArchived) entry.key: entry.value,
-      };
+    for (final entry in _habits.entries)
+      if (!entry.value.isArchived) entry.key: entry.value,
+  };
 
   Habit? byId(String id) => _habits[id];
 
@@ -91,7 +93,9 @@ class HabitsController extends ChangeNotifier {
   }
 
   void recount() {
-    _habits = {for (final entry in _habits.entries) entry.key: entry.value.copyWith()};
+    _habits = {
+      for (final entry in _habits.entries) entry.key: entry.value.copyWith(),
+    };
     _countedOn = AppClock.today().epochDay;
     notifyListeners();
   }
@@ -233,7 +237,11 @@ class HabitsController extends ChangeNotifier {
     HomeWidgetService.syncSoon(() => asMap);
   }
 
-  Future<void> toggle(String id, DateTime date, {bool fromFocus = false}) async {
+  Future<void> toggle(
+    String id,
+    DateTime date, {
+    bool fromFocus = false,
+  }) async {
     final habit = _habits[id];
     if (habit == null) return;
     if (habit.blocksManualCheck(date, fromFocus: fromFocus)) return;
@@ -298,7 +306,10 @@ class HabitsController extends ChangeNotifier {
     final habit = _habits[id];
     if (habit == null) return;
     final current = habit.completions[date.dayKey]?.count ?? 0;
-    await _apply(habit, CompletionOps.addProgress(habit, date, value - current));
+    await _apply(
+      habit,
+      CompletionOps.addProgress(habit, date, value - current),
+    );
   }
 
   Future<void> logSteps(String id, Map<DateTime, double> counts) async {
@@ -380,7 +391,10 @@ class HabitsController extends ChangeNotifier {
     if (!habit.isPausedOn(day)) {
       await update(
         habit.copyWith(
-          vacations: [...habit.vacations, VacationPeriod(start: day, end: day)],
+          vacations: [
+            ...habit.vacations,
+            VacationPeriod(start: day, end: day),
+          ],
         ),
       );
       return;
@@ -396,7 +410,9 @@ class HabitsController extends ChangeNotifier {
         periods.add(VacationPeriod(start: period.start, end: previous));
       }
       if (period.end == null) {
-        if (!next.isAfter(AppClock.today())) periods.add(VacationPeriod(start: next));
+        if (!next.isAfter(AppClock.today())) {
+          periods.add(VacationPeriod(start: next));
+        }
       } else if (period.end!.isAfter(day)) {
         periods.add(VacationPeriod(start: next, end: period.end));
       }
@@ -488,8 +504,7 @@ class HabitsController extends ChangeNotifier {
   Future<void> restore(String id) async {
     final habit = _habits[id];
     if (habit == null) return;
-    final restored =
-        habit.copyWith(clearArchived: true, order: habits.length);
+    final restored = habit.copyWith(clearArchived: true, order: habits.length);
     _habits[id] = restored;
     await LocalStore.writeHabit(restored);
     notifyListeners();
@@ -589,18 +604,46 @@ class HabitsController extends ChangeNotifier {
   Future<String?> importBackup({bool replace = false}) async {
     try {
       final data = await LocalStore.guardWrites(BackupService.read);
-      await LocalStore.guardWrites(() => _applyBackup(data, replace: replace));
-      notifyListeners();
-      await HomeWidgetService.sync(asMap);
+      await restoreBackup(data, replace: replace);
       return null;
     } catch (e) {
       return e.toString().replaceFirst('Exception: ', '');
     }
   }
 
+  Future<void> restoreBackup(BackupData data, {bool replace = false}) async {
+    final repository = PlannerRepository();
+    await repository.transaction(() async {
+      final latest = await repository.loadLatest();
+      if (latest != null) await LocalStore.writeSetting('levelUpState', latest);
+      await LocalStore.guardWrites(() => _applyBackup(data, replace: replace));
+      await repository.save(LocalStore.settingMap('levelUpState'));
+    });
+    notifyListeners();
+    await HomeWidgetService.sync(asMap);
+  }
+
   Future<void> _applyBackup(BackupData data, {required bool replace}) async {
+    // A planner snapshot includes a ledger and immutable challenge instances.
+    // Never merge it as an ordinary preference or partially merge XP histories.
+    final plannerBackup = data.settings['levelUpState'];
+    final plannerHere = LocalStore.settingMap('levelUpState');
+    if (plannerBackup != null) {
+      if (plannerBackup is! Map) {
+        throw const FormatException('Invalid planner backup');
+      }
+      PlannerState.fromMap(Map<String, dynamic>.from(plannerBackup));
+    }
+    final hasPlannerHere = PlannerState.fromMap(plannerHere).hasData;
+    if (!replace && data.hasPlanner && hasPlannerHere) {
+      throw StateError(
+        'This backup contains planner history. Use Replace to restore its '
+        'complete planner snapshot. Export your current backup first.',
+      );
+    }
     if (replace) {
-      await BackupService.safetyCopy();
+      // restoreBackup already owns the planner lease and mirrored latest data.
+      await BackupService.safetyCopy(refreshPlanner: false);
       for (final id in _habits.keys.toList()) {
         await _notifications.cancelFor(id);
       }
@@ -612,8 +655,10 @@ class HabitsController extends ChangeNotifier {
       final habit = ours == null
           ? theirs
           : ours.copyWith(
-              completions:
-                  FolderSync.mergeCompletions(ours.completions, theirs.completions),
+              completions: FolderSync.mergeCompletions(
+                ours.completions,
+                theirs.completions,
+              ),
               missReasons: {...theirs.missReasons, ...ours.missReasons},
             );
       _habits[habit.id] = habit;
@@ -636,7 +681,9 @@ class HabitsController extends ChangeNotifier {
       if (!notes.contains(note.id)) await LocalStore.writeNote(note);
     }
     for (final session in data.focus) {
-      if (!focus.contains(session.id)) await LocalStore.writeFocusSession(session);
+      if (!focus.contains(session.id)) {
+        await LocalStore.writeFocusSession(session);
+      }
     }
     for (final todo in data.todos) {
       if (!todos.contains(todo.id)) await LocalStore.writeTodo(todo);
@@ -650,6 +697,12 @@ class HabitsController extends ChangeNotifier {
         if (value == null || !backupSettingKeys.contains(entry.key)) continue;
         await LocalStore.writeSetting(entry.key, value);
       }
+    }
+    if (!replace && plannerBackup is Map && !hasPlannerHere) {
+      await LocalStore.writeSetting(
+        'levelUpState',
+        Map<String, dynamic>.from(plannerBackup),
+      );
     }
     for (final habit in data.habits) {
       final current = _habits[habit.id];

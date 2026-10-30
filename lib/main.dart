@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'
+    show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -28,6 +30,18 @@ import 'package:streak/features/statistics/pages/statistics_page.dart';
 import 'package:streak/features/todos/pages/todos_page.dart';
 import 'package:streak/features/todos/state/todo_tags_controller.dart';
 import 'package:streak/features/todos/state/todos_controller.dart';
+import 'package:streak/features/planner/state/planner_controller.dart';
+import 'package:streak/features/planner/pages/planner_task_page.dart';
+import 'package:streak/features/planner/l10n/planner_l10n.dart';
+import 'package:streak/core/utils/app_snackbar.dart';
+import 'package:streak/services/planner_sync.dart';
+import 'package:streak/services/planner_background.dart';
+import 'package:streak/services/planner_repository.dart';
+import 'package:streak/services/cloud_api.dart';
+import 'package:streak/services/cloud_session_store.dart';
+import 'package:streak/services/cloud_sync_controller.dart';
+import 'package:streak/services/native_cloud_planner_cache.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:streak/services/focus_service.dart';
 import 'package:streak/services/folder_sync.dart';
 import 'package:streak/services/home_widget_service.dart';
@@ -89,16 +103,38 @@ Future<void> _startup() async {
 
   await initializeDateFormatting();
   await LocalStore.init();
+  // Check secure identity before a folder import or any provider can expose
+  // another account's previous native/Hive cache.
+  final savedSession = await _cloudSessions.read();
+  await _cloudCache.guardSession(savedSession?.ownerId);
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(
+      ['Cairo'],
+      await rootBundle.loadString('fonts/Cairo/OFL.txt'),
+    );
+    yield LicenseEntryWithLineBreaks(
+      ['Level Up — Based on Streak by InlitX'],
+      await rootBundle.loadString('LICENSE'),
+    );
+    yield LicenseEntryWithLineBreaks(
+      ['Streak — Copyright (C) 2026 InlitX'],
+      await rootBundle.loadString('ADDITIONAL_TERMS.md'),
+    );
+  });
   AppClock.cutoffHour = LocalStore.setting('dayCutoff', 0);
   await WidgetActionService.drain(
     LocalStore.readHabits(),
     todos: LocalStore.readTodos(),
   );
   await FolderSync.pull();
+  // Validate/migrate once, or recover the Hive backup mirror from Android's
+  // authoritative AtomicFile before creating any planner controller.
+  await PlannerRepository().initialize();
   unawaited(ImageCleanupService.run());
 
   NotificationService.onOpenHabit = _openHabit;
   NotificationService.onOpenTodos = _openTodos;
+  NotificationService.onOpenPlanner = _openPlanner;
   NotificationService.onHabitsChanged = _reloadHabits;
   NotificationService.onTodosChanged = _reloadTodos;
   FocusService.onPending = drainFocusActions;
@@ -134,10 +170,13 @@ Future<void> _startup() async {
       NotificationService.openFromPayload(pending);
     }
     if (isMobile) {
-      final launched =
-          await _appChannel.invokeMethod<String>('consumeLaunchHabit');
+      final launched = await _appChannel.invokeMethod<String>(
+        'consumeLaunchHabit',
+      );
       if (launched != null) _openHabit(launched);
-      final focusOn = await _appChannel.invokeMethod<String>('consumeLaunchFocus');
+      final focusOn = await _appChannel.invokeMethod<String>(
+        'consumeLaunchFocus',
+      );
       if (focusOn != null) _startFocus(focusOn);
       final page = await _appChannel.invokeMethod<String>('consumeLaunchPage');
       if (page != null) _openPage(page);
@@ -150,6 +189,42 @@ void _run() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsController()),
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (context) {
+            final settings = context.read<SettingsController>();
+            late final PlannerController controller;
+            final repository = PlannerRepository();
+            controller = PlannerController(
+              loadLatest: repository.loadLatest,
+              transaction: repository.transaction,
+              persist: repository.save,
+              afterCommit: () async {
+                await reschedulePlannerReminders(controller);
+                await settings.runAutoBackup();
+                unawaited(_cloud?.synchronize());
+              },
+            );
+            return controller;
+          },
+        ),
+        ChangeNotifierProvider<CloudSyncController>(
+          lazy: false,
+          create: (context) {
+            final cloud = CloudSyncController(
+              api: CloudHttpApi(),
+              cache: _cloudCache,
+              sessionStore: _cloudSessions,
+              exportDraft: _cloudCache.exportDraft,
+              onApplied: _reloadAccountCaches,
+            );
+            _cloud = cloud;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              unawaited(cloud.initialize());
+            });
+            return cloud;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => CategoriesController()),
         ChangeNotifierProvider(create: (_) => TodoTagsController()),
         ChangeNotifierProvider(create: (_) => NotesController()),
@@ -180,6 +255,44 @@ void _run() {
 
 const _appChannel = MethodChannel('streak/app_icon');
 
+final _cloudSessions = CloudSecureSessionStore();
+CloudSyncController? _cloud;
+final _cloudCache = NativeCloudPlannerCache(
+  archives: CloudSecureArchiveStore(),
+  timeZone: () async => (await FlutterTimezone.getLocalTimezone()).identifier,
+  beforeIsolation: () async {
+    final context = AppNavigator.key.currentContext;
+    if (context != null) {
+      final focus = context.read<FocusController>();
+      if (focus.isActive) await focus.stop(completed: false);
+    }
+    await FocusService.hide();
+    HomeWidgetService.cancelPendingSync();
+    TodosWidgetService.cancelPendingSync();
+  },
+  cancelNotifications: () => NotificationService().cancelAll(),
+);
+
+Future<void> _reloadAccountCaches() async {
+  final context = AppNavigator.key.currentContext;
+  if (context == null) return;
+  await context.read<SettingsController>().reloadFromStore();
+  if (!context.mounted) return;
+  await context.read<HabitsController>().reload();
+  if (!context.mounted) return;
+  context.read<CategoriesController>().reload();
+  context.read<TodoTagsController>().reload();
+  context.read<NotesController>().reload();
+  context.read<TodosController>().reload();
+  context.read<FocusController>().reload();
+  context.read<IslandController>().reload();
+  HomeWidgetService.sync(context.read<HabitsController>().asMap);
+  TodosWidgetService.sync(context.read<TodosController>().all);
+  await context.read<PlannerController>().reload();
+  if (!context.mounted) return;
+  await reschedulePlannerReminders(context.read<PlannerController>());
+}
+
 void _openHabit(String habitId) {
   AppNavigator.push(HabitDetailsPage(habitId: habitId), fade: true);
 }
@@ -190,6 +303,56 @@ void _reloadHabits() {
 
 void _reloadTodos() {
   AppNavigator.key.currentContext?.read<TodosController>().reload();
+}
+
+Future<void> _openPlanner(String occurrenceId, String? actionId) async {
+  final context = AppNavigator.key.currentContext;
+  if (context == null) return;
+  final controller = context.read<PlannerController>();
+  try {
+    await controller.evaluate();
+  } catch (error) {
+    if (context.mounted) {
+      AppSnackbar.error(context, plannerError(context, error));
+    }
+    return;
+  }
+  final occurrence = controller.occurrenceById(occurrenceId);
+  if (occurrence == null || !context.mounted) return;
+  if (actionId == NotificationService.actionPlannerSnooze) {
+    try {
+      final snoozed = await snoozePlannerReminder(controller, occurrenceId);
+      if (context.mounted) {
+        if (snoozed) {
+          AppSnackbar.success(context, context.plannerText('reminderSnoozed'));
+        } else {
+          AppSnackbar.info(
+            context,
+            context.plannerText('reminderUnavailable'),
+          );
+        }
+      }
+    } catch (error) {
+      if (context.mounted) {
+        AppSnackbar.error(context, plannerError(context, error));
+      }
+    }
+    return;
+  }
+  if (actionId == NotificationService.actionPlannerDone) {
+    try {
+      await controller.complete(occurrenceId);
+      if (context.mounted) {
+        AppSnackbar.success(context, context.plannerText('taskCompleted'));
+      }
+      return;
+    } catch (error) {
+      if (context.mounted) {
+        AppSnackbar.info(context, plannerError(context, error));
+      }
+    }
+  }
+  AppNavigator.push(PlannerTaskPage(occurrence: occurrence), fade: true);
 }
 
 void _openTodos([String? todoId]) {
@@ -211,7 +374,9 @@ void _openDay(String target) {
   final split = target.lastIndexOf(':');
   final context = AppNavigator.key.currentContext;
   if (split <= 0 || context == null) return;
-  final habit = context.read<HabitsController>().byId(target.substring(0, split));
+  final habit = context.read<HabitsController>().byId(
+    target.substring(0, split),
+  );
   if (habit == null) return;
   showDayActionsSheet(
     context,
@@ -290,4 +455,9 @@ Future<void> widgetActionEntrypoint() async {
     debugPrint('Widget action entrypoint failed: $e');
   }
   await channel.invokeMethod('done');
+}
+
+@pragma('vm:entry-point')
+Future<void> plannerReminderEntrypoint() async {
+  await runPlannerBackgroundRefresh();
 }

@@ -20,6 +20,8 @@ import 'package:streak/features/habits/data/habit_note.dart';
 import 'package:streak/features/todos/data/todo.dart';
 import 'package:streak/features/todos/data/todo_tag.dart';
 import 'package:streak/services/vault_writer.dart';
+import 'package:streak/features/planner/data/planner_models.dart';
+import 'package:streak/services/planner_repository.dart';
 
 const _kBackupVersion = 2;
 const _kAutoBackupKeep = 5;
@@ -58,43 +60,53 @@ class BackupData {
   final Map<String, int> cleared;
 
   bool get isEmpty =>
-      habits.isEmpty && notes.isEmpty && focus.isEmpty && todos.isEmpty;
+      habits.isEmpty &&
+      notes.isEmpty &&
+      focus.isEmpty &&
+      todos.isEmpty &&
+      !hasPlanner;
+
+  bool get hasPlanner {
+    final raw = settings['levelUpState'];
+    return raw is Map &&
+        PlannerState.fromMap(Map<String, dynamic>.from(raw)).hasData;
+  }
 }
 
 class BackupService {
   const BackupService._();
 
-  static Map<String, Object?> _payload(List<Habit> habits) => {
-        'app': 'streak',
-        'version': _kBackupVersion,
-        'exportedAt': DateTime.now().toIso8601String(),
-        'device': LocalStore.deviceId,
-        'changes': LocalStore.changes,
-        'deleted': LocalStore.deleted,
-        'cleared': LocalStore.cleared,
-        'habits': habits.map((h) => h.toMap()).toList(),
-        'categories':
-            LocalStore.readCategories().map((c) => c.toMap()).toList(),
-        'notes': LocalStore.readNotes().map((n) => n.toMap()).toList(),
-        'focus':
-            LocalStore.readFocusSessions().map((f) => f.toMap()).toList(),
-        'todos': LocalStore.readTodos().map((t) => t.toMap()).toList(),
-        'todoTags': LocalStore.readTodoTags().map((t) => t.toMap()).toList(),
-        'settings': {
-          for (final key in backupSettingKeys)
-            if (LocalStore.setting<Object?>(key, null) case final value?)
-              key: value,
-        },
-      };
+  static Map<String, Object?> snapshot(List<Habit> habits) => {
+    'app': 'streak',
+    'version': _kBackupVersion,
+    'exportedAt': DateTime.now().toIso8601String(),
+    'device': LocalStore.deviceId,
+    'changes': LocalStore.changes,
+    'deleted': LocalStore.deleted,
+    'cleared': LocalStore.cleared,
+    'habits': habits.map((h) => h.toMap()).toList(),
+    'categories': LocalStore.readCategories().map((c) => c.toMap()).toList(),
+    'notes': LocalStore.readNotes().map((n) => n.toMap()).toList(),
+    'focus': LocalStore.readFocusSessions().map((f) => f.toMap()).toList(),
+    'todos': LocalStore.readTodos().map((t) => t.toMap()).toList(),
+    'todoTags': LocalStore.readTodoTags().map((t) => t.toMap()).toList(),
+    'settings': {
+      for (final key in backupSettingKeys)
+        if (LocalStore.setting<Object?>(key, null) case final value?)
+          key: value,
+    },
+  };
 
   static bool _hasContent(List<Habit> habits) =>
       habits.isNotEmpty ||
       LocalStore.readNotes().isNotEmpty ||
       LocalStore.readTodos().isNotEmpty ||
-      LocalStore.readFocusSessions().isNotEmpty;
+      LocalStore.readFocusSessions().isNotEmpty ||
+      LocalStore.settingMap('levelUpState').isNotEmpty;
 
-  static Future<void> safetyCopy() async {
+  static Future<void> safetyCopy({bool refreshPlanner = true}) async {
     try {
+      if (refreshPlanner) await PlannerRepository().syncBackupMirror();
       final habits = LocalStore.readHabits().values.toList();
       if (!_hasContent(habits)) return;
       final dir = await defaultBackupDir();
@@ -103,7 +115,7 @@ class BackupService {
       final stamp = DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
       final target = '${dir.path}/streak_safety_$stamp.zip';
       await _settle(File('$target.part'), target, (part) async {
-        await BackupArchive.pack(_payload(habits), part.path);
+        await BackupArchive.pack(snapshot(habits), part.path);
       });
       _prune(dir, 'streak_safety_', '.zip', _kSafetyKeep);
     } catch (e) {
@@ -147,7 +159,13 @@ class BackupService {
     bool readable = true,
     bool archive = true,
   }) async {
+    // Account recovery uses the authenticated cloud store. Do not write private
+    // account drafts into a previously configured shared readable folder.
+    if (LocalStore.settingMap('levelUpCloudCache')['ownerId'] is String) {
+      return null;
+    }
     try {
+      await PlannerRepository().syncBackupMirror();
       final habits = LocalStore.readHabits().values.toList();
       if (!_hasContent(habits)) return null;
       final dir = folder.isEmpty ? await defaultBackupDir() : Directory(folder);
@@ -156,7 +174,7 @@ class BackupService {
 
       final stamp = DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
       final base = '${dir.path}/streak_backup_${stamp}_${LocalStore.deviceId}';
-      final payload = _payload(habits);
+      final payload = snapshot(habits);
       final json = await Isolate.run(
         () => const JsonEncoder.withIndent('  ').convert(payload),
       );
@@ -210,17 +228,12 @@ class BackupService {
     const stampLength = 19;
     final plain = prefix.length + stampLength + extension.length;
     final own = '_${LocalStore.deviceId}$extension';
-    final files = dir
-        .listSync()
-        .whereType<File>()
-        .where((f) {
-          final name = f.uri.pathSegments.last;
-          return name.startsWith(prefix) &&
-              name.endsWith(extension) &&
-              (name.length == plain || name.endsWith(own));
-        })
-        .toList()
-      ..sort((a, b) => b.path.compareTo(a.path));
+    final files = dir.listSync().whereType<File>().where((f) {
+      final name = f.uri.pathSegments.last;
+      return name.startsWith(prefix) &&
+          name.endsWith(extension) &&
+          (name.length == plain || name.endsWith(own));
+    }).toList()..sort((a, b) => b.path.compareTo(a.path));
     final days = <String>{};
     for (final (index, file) in files.indexed) {
       final name = file.uri.pathSegments.last;
@@ -234,11 +247,12 @@ class BackupService {
   }
 
   static Future<bool> export(List<Habit> habits, {Rect? origin}) async {
+    await PlannerRepository().syncBackupMirror();
     final stamp = DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
     final name = 'streak_backup_$stamp.zip';
     final dir = await Directory.systemTemp.createTemp('streak_backup');
     final zip = '${dir.path}/$name';
-    await BackupArchive.pack(_payload(habits), zip);
+    await BackupArchive.pack(snapshot(habits), zip);
 
     if (!isMobile) {
       final path = await FilePicker.platform.saveFile(
@@ -292,8 +306,9 @@ class BackupService {
     }
 
     return parse(
-      const Utf8Decoder(allowMalformed: true)
-          .convert(await File(path).readAsBytes()),
+      const Utf8Decoder(
+        allowMalformed: true,
+      ).convert(await File(path).readAsBytes()),
     );
   }
 
@@ -345,6 +360,16 @@ class BackupService {
     }
 
     final habits = collect(entries, Habit.fromMap);
+    final settings = root['settings'] is Map
+        ? Map<String, Object?>.from(root['settings'] as Map)
+        : <String, Object?>{};
+    if (settings.containsKey('levelUpState')) {
+      final planner = settings['levelUpState'];
+      if (planner is! Map) {
+        throw const FormatException('Invalid planner backup');
+      }
+      PlannerState.fromMap(Map<String, dynamic>.from(planner));
+    }
     final data = BackupData(
       habits: habits,
       notes: collect(root['notes'], HabitNote.fromMap),
@@ -354,9 +379,7 @@ class BackupService {
       categories: collect(root['categories'], Category.fromMap),
       skipped: skipped,
       exportedAt: DateTime.tryParse((root['exportedAt'] ?? '') as String),
-      settings: root['settings'] is Map
-          ? Map<String, Object?>.from(root['settings'] as Map)
-          : const {},
+      settings: settings,
       device: root['device'] is String ? root['device'] as String : '',
       changes: _stamps(root['changes']),
       deleted: _stamps(root['deleted']),

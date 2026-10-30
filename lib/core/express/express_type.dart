@@ -46,6 +46,9 @@ class ExpressAxes {
     final axes = copyWith(weight: weight, width: width, round: round);
     return TextStyle(
       fontFamily: ExpressType.family,
+      fontFamilyFallback: const ['Cairo'],
+      fontWeight:
+          FontWeight.values[((axes.weight / 100).round() - 1).clamp(0, 8)],
       fontSize: size,
       height: height,
       letterSpacing: spacing,

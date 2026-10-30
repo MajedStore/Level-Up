@@ -51,13 +51,14 @@ class LocalStore {
   static Completer<void>? _idle;
 
   static Map<String, int> _stamps(String key) => {
-        for (final entry in settingMap(key).entries)
-          if (entry.value is int) entry.key: entry.value as int,
-      };
+    for (final entry in settingMap(key).entries)
+      if (entry.value is int) entry.key: entry.value as int,
+  };
 
   static Map<String, int> get changes => _changes ??= _stamps(_changesKey);
 
-  static Map<String, int> get deleted => _deleted ??= _forgetOld(_stamps(_deletedKey));
+  static Map<String, int> get deleted =>
+      _deleted ??= _forgetOld(_stamps(_deletedKey));
 
   static Map<String, int> get cleared => _cleared ??= _stamps(_clearedKey);
 
@@ -108,7 +109,9 @@ class LocalStore {
         revived = deleted.remove(id) != null || revived;
       }
       await _settings.put(_changesKey, Map<String, int>.of(changes));
-      if (revived) await _settings.put(_deletedKey, Map<String, int>.of(deleted));
+      if (revived) {
+        await _settings.put(_deletedKey, Map<String, int>.of(deleted));
+      }
     }
     onChanged?.call();
   }
@@ -139,7 +142,10 @@ class LocalStore {
     final saved = setting(_deviceKey, '');
     if (saved.isNotEmpty) return saved;
     final random = Random.secure();
-    final made = List.generate(8, (_) => random.nextInt(16).toRadixString(16)).join();
+    final made = List.generate(
+      8,
+      (_) => random.nextInt(16).toRadixString(16),
+    ).join();
     _settings.put(_deviceKey, made);
     return made;
   }
@@ -301,7 +307,9 @@ class LocalStore {
   static FocusSession? focusSession(String id) {
     try {
       final raw = _focus.get(id);
-      return raw is Map ? FocusSession.fromMap(Map<String, dynamic>.from(raw)) : null;
+      return raw is Map
+          ? FocusSession.fromMap(Map<String, dynamic>.from(raw))
+          : null;
     } catch (_) {
       return null;
     }
@@ -341,7 +349,9 @@ class LocalStore {
   static HabitNote? note(String id) {
     try {
       final raw = _notes.get(id);
-      return raw is Map ? HabitNote.fromMap(Map<String, dynamic>.from(raw)) : null;
+      return raw is Map
+          ? HabitNote.fromMap(Map<String, dynamic>.from(raw))
+          : null;
     } catch (_) {
       return null;
     }
@@ -442,8 +452,9 @@ class LocalStore {
 
   static Future<void> mergeCategory(Category category) async {
     final key = categoryKey(category.name);
-    final taken = readCategories()
-        .any((c) => c.id != category.id && categoryKey(c.name) == key);
+    final taken = readCategories().any(
+      (c) => c.id != category.id && categoryKey(c.name) == key,
+    );
     if (!taken) await writeCategory(category);
   }
 
@@ -474,11 +485,52 @@ class LocalStore {
 
   static Map<String, dynamic> settingMap(String key) {
     final value = _settings.get(key);
-    return value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
+    return value is Map
+        ? Map<String, dynamic>.from(value)
+        : <String, dynamic>{};
   }
 
   static Future<void> writeSetting(String key, Object value) =>
       _settings.put(key, value);
+
+  /// A private device cache checkpoint for account isolation. This remains
+  /// local, encrypted by the account vault; it is not a cloud import payload.
+  static Map<String, dynamic> privateCacheSnapshot() => {
+    'habits': _habits.toMap(),
+    'settings': _settings.toMap(),
+    'categories': _categories.toMap(),
+    'notes': _notes.toMap(),
+    'focus': _focus.toMap(),
+    'todos': _todos.toMap(),
+    'todoTags': _todoTags.toMap(),
+  };
+
+  /// Used only while the planner account-switch lease is held. Replaces all
+  /// private tool caches as well as planner settings, preventing cross-account
+  /// remnants in the retained habit/focus tools.
+  static Future<void> replacePrivateCache(Map<String, dynamic> snapshot) async {
+    final boxes = {
+      'habits': _habits,
+      'settings': _settings,
+      'categories': _categories,
+      'notes': _notes,
+      'focus': _focus,
+      'todos': _todos,
+      'todoTags': _todoTags,
+    };
+    await quietly(() async {
+      for (final entry in boxes.entries) {
+        await entry.value.clear();
+        final values = snapshot[entry.key];
+        if (values is Map) await entry.value.putAll(values);
+      }
+    });
+    _changes = null;
+    _deleted = null;
+    _cleared = null;
+    _habitsStamp = _stampOf(_habits);
+    _todosStamp = _stampOf(_todos);
+  }
 
   static Future<void> clearProgress() async {
     final habits = readHabits().values.toList();

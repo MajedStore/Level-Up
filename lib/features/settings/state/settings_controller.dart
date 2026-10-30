@@ -46,22 +46,26 @@ class SettingsController extends ChangeNotifier {
   }
 
   void _load() {
-    _themeMode = ThemeMode.values[LocalStore.setting('themeMode', 0)];
+    _themeMode = ThemeMode.values[LocalStore.setting('themeMode', 2)];
     _weekStart = LocalStore.setting('weekStart', 1);
     Habit.weekStart = _weekStart;
     _onboardingDone = LocalStore.setting('onboardingDone', false);
-    _localeCode = LocalStore.setting('locale', '');
-    _appBackground = LocalStore.setting('appBackground', 2);
+    _localeCode = LocalStore.setting('locale', 'en');
+    _appBackground = LocalStore.setting('appBackground', 0);
     _bgImage = LocalStore.setting('bgImage', '');
     _checkStyle = LocalStore.setting('checkStyle', 0);
     _profileName = LocalStore.setting('profileName', '');
     _currency = LocalStore.setting('currency', defaultCurrencySymbol());
     _vacationAll = LocalStore.setting('vacationAll', false);
-    _vacationAllIds =
-        List<String>.from(LocalStore.setting('vacationAllIds', const <String>[]));
+    _vacationAllIds = List<String>.from(
+      LocalStore.setting('vacationAllIds', const <String>[]),
+    );
     _profilePhoto = LocalStore.setting('profilePhoto', '');
     _appIcon = LocalStore.setting('appIcon', 0);
-    _accentColor = LocalStore.setting('accentColor', AppPalette.brand.toARGB32());
+    _accentColor = LocalStore.setting(
+      'accentColor',
+      AppPalette.brand.toARGB32(),
+    );
     _colorTheme = LocalStore.setting('colorTheme', '');
     _customTheme = ColorTheme.custom(LocalStore.settingMap('customTheme'));
     _heatmapMode = LocalStore.setting('heatmapMode', 0);
@@ -99,18 +103,22 @@ class SettingsController extends ChangeNotifier {
     _appLockMode = LocalStore.setting('appLockMode', 0);
     _islandEnabled = LocalStore.setting('islandEnabled', true);
     _quoteSource = LocalStore.setting('quoteSource', 0);
-    _customQuotes =
-        List<String>.from(LocalStore.setting('customQuotes', const <String>[]));
+    _customQuotes = List<String>.from(
+      LocalStore.setting('customQuotes', const <String>[]),
+    );
     _focusEnabled = LocalStore.setting('focusEnabled', true);
     _focusClockStyle = LocalStore.setting('focusClockStyle', 2);
     _focusScene = LocalStore.setting('focusScene', defaultFocusScene);
     _focusImage = LocalStore.setting('focusImage', '');
-    _focusTracks =
-        List<String>.from(LocalStore.setting('focusTracks', const <String>[]));
+    _focusTracks = List<String>.from(
+      LocalStore.setting('focusTracks', const <String>[]),
+    );
     _focusShuffle = LocalStore.setting('focusShuffle', false);
     _focusRepeatOne = LocalStore.setting('focusRepeatOne', false);
-    _focusVolume =
-        LocalStore.setting<num>('focusVolume', 1.0).toDouble().clamp(0.0, 1.0);
+    _focusVolume = LocalStore.setting<num>(
+      'focusVolume',
+      1.0,
+    ).toDouble().clamp(0.0, 1.0);
     FocusAudio.volume.value = _focusVolume;
     _focusMinutes = LocalStore.setting('focusMinutes', 25);
     _focusBreakMinutes = LocalStore.setting('focusBreakMinutes', 0);
@@ -123,20 +131,24 @@ class SettingsController extends ChangeNotifier {
     _focusWholeRounds = LocalStore.setting('focusWholeRounds', false);
     _focusAutoNext = LocalStore.setting('focusAutoNext', false);
     _focusLongBreak = LocalStore.setting('focusLongBreak', 0);
-    _focusImages =
-        List<String>.from(LocalStore.setting('focusImages', const <String>[]));
-    _hiddenScenes =
-        List<int>.from(LocalStore.setting('hiddenScenes', const <int>[]));
-    _hiddenTracks =
-        List<String>.from(LocalStore.setting('hiddenTracks', const <String>[]))
-            .map(builtInTrackId)
-            .toList();
+    _focusImages = List<String>.from(
+      LocalStore.setting('focusImages', const <String>[]),
+    );
+    _hiddenScenes = List<int>.from(
+      LocalStore.setting('hiddenScenes', const <int>[]),
+    );
+    _hiddenTracks = List<String>.from(
+      LocalStore.setting('hiddenTracks', const <String>[]),
+    ).map(builtInTrackId).toList();
     _appStyle = LocalStore.setting(
       'appStyle',
       LocalStore.setting('homeLayout', 0),
     );
-    _celebration = CelebrationStyle.values[LocalStore.setting('celebration', 0)
-        .clamp(0, CelebrationStyle.values.length - 1)];
+    _celebration =
+        CelebrationStyle.values[LocalStore.setting(
+          'celebration',
+          0,
+        ).clamp(0, CelebrationStyle.values.length - 1)];
     _appLock = LocalStore.setting('appLock', false);
     _appLockDelay = LocalStore.setting('appLockDelay', 0);
     _dayCutoff = LocalStore.setting('dayCutoff', 0);
@@ -240,7 +252,8 @@ class SettingsController extends ChangeNotifier {
   int get weekStart => _weekStart;
   bool get onboardingDone => _onboardingDone;
   String get localeCode => _localeCode;
-  Locale? get locale => _localeCode.isEmpty ? null : localeFromCode(_localeCode);
+  Locale? get locale =>
+      _localeCode.isEmpty ? null : localeFromCode(_localeCode);
 
   int get appBackground => _appBackground;
 
@@ -261,7 +274,6 @@ class SettingsController extends ChangeNotifier {
     await LocalStore.writeSetting('vacationAllIds', _vacationAllIds);
     notifyListeners();
   }
-
 
   Future<void> setCurrency(String value) async {
     _currency = value;
@@ -498,6 +510,7 @@ class SettingsController extends ChangeNotifier {
     await LocalStore.writeSetting('focusImage', path);
     notifyListeners();
   }
+
   List<String> get focusTracks => List.unmodifiable(_focusTracks);
   bool get focusShuffle => _focusShuffle;
   bool get focusRepeatOne => _focusRepeatOne;
@@ -507,6 +520,7 @@ class SettingsController extends ChangeNotifier {
     _focusVolume = value.clamp(0.0, 1.0);
     await LocalStore.writeSetting('focusVolume', _focusVolume);
   }
+
   int get focusMinutes => _focusMinutes;
   int get focusBreakMinutes => _focusBreakMinutes;
   String get focusTrack => _focusTrack;
@@ -525,6 +539,7 @@ class SettingsController extends ChangeNotifier {
     await LocalStore.writeSetting('focusTrack', id);
     notifyListeners();
   }
+
   int get focusDailyGoal => _focusDailyGoal;
   bool get focusKeepAwake => _focusKeepAwake;
   bool get focusLeadIn => _focusLeadIn;
@@ -762,8 +777,9 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<void> pruneFocusTracks() async {
-    final alive =
-        _focusTracks.where((t) => FocusTrack.decode(t) != null).toList();
+    final alive = _focusTracks
+        .where((t) => FocusTrack.decode(t) != null)
+        .toList();
     if (alive.length == _focusTracks.length) return;
     _focusTracks = alive;
     await LocalStore.writeSetting('focusTracks', _focusTracks);
@@ -1006,10 +1022,10 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<void> _syncWidgetStyle() => HomeWidgetService.syncWidgetStyle(
-        bgColor: _widgetBgColor,
-        opacity: _widgetOpacity,
-        border: _widgetBorder,
-      );
+    bgColor: _widgetBgColor,
+    opacity: _widgetOpacity,
+    border: _widgetBorder,
+  );
 
   Future<void> completeOnboarding() async {
     _onboardingDone = true;

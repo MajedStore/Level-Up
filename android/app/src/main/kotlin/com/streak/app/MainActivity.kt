@@ -15,6 +15,7 @@ class MainActivity : FlutterFragmentActivity() {
     private val channelName = "streak/app_icon"
     private var channel: MethodChannel? = null
     private var focusChannel: MethodChannel? = null
+    private var plannerBridge: PlannerReminderBridge.Foreground? = null
     private var wasNight: Boolean? = null
 
     private val aliases = mapOf(
@@ -33,6 +34,7 @@ class MainActivity : FlutterFragmentActivity() {
                 .also { FocusBridge.attach(applicationContext, it) }
         HealthBridge.attach(this, MethodChannel(flutterEngine.dartExecutor.binaryMessenger, HealthBridge.CHANNEL))
         SoundBridge.attach(applicationContext, MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SoundBridge.CHANNEL))
+        plannerBridge = PlannerReminderBridge.attach(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName).apply {
             setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -68,6 +70,8 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
+        plannerBridge?.detach()
+        plannerBridge = null
         FocusBridge.detach(focusChannel)
         SoundBridge.detach()
         super.onDestroy()

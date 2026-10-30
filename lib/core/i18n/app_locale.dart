@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:streak/l10n/app_localizations.dart';
 
 const shippedLanguages = {
-  'ca', 'de', 'en', 'es', 'fr', 'ko', 'pt', 'ro', 'ru', 'tr', 'uk', 'zh',
+  'ar', 'ca', 'de', 'en', 'es', 'fr', 'ko', 'pt', 'ro', 'ru', 'tr', 'uk', 'zh',
 };
 
 List<Locale> get shippedLocales => AppLocalizations.supportedLocales

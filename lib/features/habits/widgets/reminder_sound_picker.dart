@@ -5,6 +5,7 @@ import 'package:streak/core/i18n/l10n.dart';
 import 'package:streak/core/utils/responsive.dart';
 import 'package:streak/core/widgets/sheet_type.dart';
 import 'package:streak/services/reminder_sounds.dart';
+import 'package:streak/features/planner/l10n/planner_l10n.dart';
 
 const defaultReminderSound = ReminderSound('', '');
 
@@ -81,7 +82,7 @@ class _SoundSheetState extends State<_SoundSheet> {
                 itemBuilder: (context, i) => _SoundRow(
                   label: options[i].uri.isEmpty
                       ? context.l10n.reminder_sound_default
-                      : options[i].title,
+                      : plannerSoundName(context, options[i].title),
                   selected: options[i].uri == _uri,
                   onTap: () => _choose(options[i]),
                 ),
@@ -160,7 +161,9 @@ class ReminderSoundRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = context.colors;
-    final value = name.isEmpty ? context.l10n.reminder_sound_default : name;
+    final value = name.isEmpty
+        ? context.l10n.reminder_sound_default
+        : plannerSoundName(context, name);
     return Semantics(
       button: true,
       child: GestureDetector(

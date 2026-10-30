@@ -41,22 +41,36 @@ Future<void> _tapSheetAction(WidgetTester tester, String label) async {
 
 Future<void> _save(WidgetTester tester) async {
   final button = tester.widget<TextButton>(
-    find.ancestor(of: find.text('Save'), matching: find.byType(TextButton)).first,
+    find
+        .ancestor(of: find.text('Save'), matching: find.byType(TextButton))
+        .first,
   );
-  final before = LocalStore.readHabits().length;
   await tester.runAsync(() async {
     button.onPressed!();
-    for (var wait = 0; wait < 50; wait++) {
-      if (LocalStore.readHabits().length > before) break;
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 300));
   });
   await tester.pumpAndSettle();
+  // The store write precedes reminder scheduling and the final route pop.
+  // Wait for the entire save, including its asynchronous side effects.
+  for (
+    var wait = 0;
+    wait < 100 && find.byType(HabitFormPage).evaluate().isNotEmpty;
+    wait++
+  ) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+  }
+  expect(
+    find.byType(HabitFormPage),
+    findsNothing,
+    reason: 'Saving must close the form before reading the home controller.',
+  );
 }
 
-EditableText _nameField(WidgetTester tester, String name) =>
-    tester.widgetList<EditableText>(find.byType(EditableText)).firstWhere(
+EditableText _nameField(WidgetTester tester, String name) => tester
+    .widgetList<EditableText>(find.byType(EditableText))
+    .firstWhere(
       (field) => field.controller.text == name,
     );
 
@@ -96,7 +110,10 @@ void main() {
     expect(find.byType(HabitFormPage), findsOneWidget);
     final field = _nameField(tester, 'Run');
     expect(field.focusNode.hasFocus, isTrue);
-    expect(field.controller.selection, const TextSelection.collapsed(offset: 3));
+    expect(
+      field.controller.selection,
+      const TextSelection.collapsed(offset: 3),
+    );
   });
 
   testWidgets('saving the copy keeps its settings but not its history', (

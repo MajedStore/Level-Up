@@ -52,7 +52,14 @@
   "onb_yours_body": "Back it up or take it with you whenever you want.",
   "onb_step": "Step {step} of {total}",
   "@onb_step": {
-    "placeholders": { "step": { "type": "int" }, "total": { "type": "int" } }
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   },
   "statistics": "Statistics",
   "done_today": "Done today",
@@ -104,7 +111,9 @@
   "data_folder_move_confirm": "Move and close",
   "@data_folder_move_body": {
     "placeholders": {
-      "path": { "type": "String" }
+      "path": {
+        "type": "String"
+      }
     }
   },
   "refresh_brought": "Your habits are up to date",
@@ -116,9 +125,15 @@
   "import_from_app_done": "Imported {habits} habits ({days} days) from {source}",
   "@import_from_app_done": {
     "placeholders": {
-      "habits": { "type": "int" },
-      "days": { "type": "int" },
-      "source": { "type": "String" }
+      "habits": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      },
+      "source": {
+        "type": "String"
+      }
     }
   },
   "import_failed": "Couldn't import that file",
@@ -143,23 +158,43 @@
   "category_finance": "Finance",
   "count_days": "{count, plural, =1{1 day} other{{count} days}}",
   "@count_days": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "count_weeks": "{count, plural, =1{1 week} other{{count} weeks}}",
   "@count_weeks": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "count_months": "{count, plural, =1{1 month} other{{count} months}}",
   "@count_months": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "streak_unit_week": "{count}w",
   "@streak_unit_week": {
-    "placeholders": { "count": { "type": "String" } }
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
   },
   "streak_unit_month": "{count}mo",
   "@streak_unit_month": {
-    "placeholders": { "count": { "type": "String" } }
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
   },
   "habit_kind": "Habit type",
   "kind_positive": "Normal",
@@ -199,13 +234,25 @@
   "focus_label_hint": "Maths, reading, work...",
   "focus_label_remove": "Remove label",
   "focus_label_remove_body": "{label} leaves the list. Your past sessions keep it.",
-  "@focus_label_remove_body": {"placeholders": {"label": {"type": "String"}}},
+  "@focus_label_remove_body": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "focus_label_remove_confirm": "Remove",
   "by_label": "By label",
   "tracking_hide": "Hide just tracking",
   "tracking_hide_sub": "Habits you only track stay out of this list",
   "tracking_show": "Show just tracking ({count})",
-  "@tracking_show": {"placeholders": {"count": {"type": "int"}}},
+  "@tracking_show": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "daily": "Daily",
   "weekly": "Weekly",
   "monthly": "Monthly",
@@ -268,7 +315,11 @@
   "app_lock_delay_instant": "Immediately",
   "app_lock_delay_seconds": "{value} seconds",
   "@app_lock_delay_seconds": {
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "note_photos": "Photos",
   "note_take_photo": "Camera",
@@ -276,13 +327,21 @@
   "journey": "Journey",
   "journey_sub": "{count, plural, =1{1 photo} other{{count} photos}}",
   "@journey_sub": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "journey_empty": "No photos yet",
   "journey_empty_sub": "Add a photo to a note and it shows up here.",
   "archive_habit_body": "Move \"{name}\" to the archive? Its history is kept and you can restore it from Settings.",
   "@archive_habit_body": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "archived_habits": "Archived habits",
   "archived_habits_sub": "Restore them or delete them for good",
@@ -293,7 +352,11 @@
   "delete_forever": "Delete for good",
   "delete_forever_body": "Delete \"{name}\" and all of its history? This cannot be undone.",
   "@delete_forever_body": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "deleted_forever": "Habit deleted",
   "clear_progress": "Clear progress",
@@ -313,7 +376,11 @@
   "day_start_midnight": "Midnight",
   "day_start_hour": "{hour}:00 AM",
   "@day_start_hour": {
-    "placeholders": { "hour": { "type": "String" } }
+    "placeholders": {
+      "hour": {
+        "type": "String"
+      }
+    }
   },
   "share_photo": "Photo",
   "share_stats_short": "Stats",
@@ -372,7 +439,9 @@
   "every_n_hours": "Every {n} h",
   "@every_n_hours": {
     "placeholders": {
-      "n": { "type": "String" }
+      "n": {
+        "type": "String"
+      }
     }
   },
   "repeat_weekly": "Specific days",
@@ -386,9 +455,21 @@
     }
   },
   "every_n_weeks": "{n, plural, =1{Every week} other{Every {n} weeks}}",
-  "@every_n_weeks": {"placeholders": {"n": {"type": "int"}}},
+  "@every_n_weeks": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "every_n_months": "{n, plural, =1{Every month} other{Every {n} months}}",
-  "@every_n_months": {"placeholders": {"n": {"type": "int"}}},
+  "@every_n_months": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "sched_unit_days": "Days",
   "sched_unit_weeks": "Weeks",
   "sched_unit_months": "Months",
@@ -416,11 +497,23 @@
   "todo_tag_folders": "Folders",
   "todo_tag_list": "List",
   "todo_tag_count": "{n} open",
-  "@todo_tag_count": {"placeholders": {"n": {"type": "int"}}},
+  "@todo_tag_count": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "todo_tag_icon": "Icon",
   "todo_tag_pick": "Pick tags",
   "todo_tag_filtered": "Filtered by {name}",
-  "@todo_tag_filtered": {"placeholders": {"name": {"type": "String"}}},
+  "@todo_tag_filtered": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "uncategorized": "Uncategorized",
   "more_icons": "More icons",
   "less_icons": "Fewer icons",
@@ -475,15 +568,37 @@
   "any_step_sub": "Checking one step marks the day as done, without doing them all.",
   "steps_needed_sub": "The day counts as done with {needed} of {total} steps.",
   "@steps_needed_sub": {
-    "placeholders": { "needed": { "type": "int" }, "total": { "type": "int" } }
+    "placeholders": {
+      "needed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   },
   "sched_start": "Starts on",
   "from_last_done": "Count from the last time",
   "month_weekday": "Same weekday every month",
   "month_weekday_sub": "Falls on the {when} of the month, not on a fixed date.",
-  "@month_weekday_sub": {"placeholders": {"when": {"type": "String"}}},
+  "@month_weekday_sub": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
   "nth_weekday": "{n, select, first{first} second{second} third{third} fourth{fourth} other{last}} {day}",
-  "@nth_weekday": {"placeholders": {"n": {"type": "String"}, "day": {"type": "String"}}},
+  "@nth_weekday": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "day": {
+        "type": "String"
+      }
+    }
+  },
   "from_last_done_sub": "Each time you do it, the wait starts again. A missed day still breaks the streak.",
   "quotes": "Quotes",
   "quotes_which": "Which quotes",
@@ -531,7 +646,6 @@
   "consistency_trend": "Consistency trend",
   "by_habit": "By habit",
   "ranking": "Ranking",
-  "last_30_days": "Last 30 days",
   "active_days": "Active days",
   "perfect_days": "Perfect days",
   "per_week": "Per week",
@@ -587,7 +701,11 @@
   "tomorrow": "Tomorrow",
   "notes_count": "{count, plural, =1{1 note} other{{count} notes}}",
   "@notes_count": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "todos": "To-Do",
   "todo_view_list": "Simple",
@@ -609,19 +727,35 @@
   "todo_repeat_workdays": "Monday to Friday",
   "todo_repeat_days": "{count, plural, =1{Every day} other{Every {count} days}}",
   "@todo_repeat_days": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "todo_repeat_weeks": "{count, plural, =1{Every week} other{Every {count} weeks}}",
   "@todo_repeat_weeks": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "todo_repeat_months": "{count, plural, =1{Every month} other{Every {count} months}}",
   "@todo_repeat_months": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "todo_repeat_years": "{count, plural, =1{Every year} other{Every {count} years}}",
   "@todo_repeat_years": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "todo_repeat_custom": "Custom",
   "todo_repeat_unit_days": "Days",
@@ -630,11 +764,22 @@
   "todo_repeat_unit_years": "Years",
   "todo_repeat_on_day": "On day {day}",
   "@todo_repeat_on_day": {
-    "placeholders": { "day": { "type": "int" } }
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
   },
   "todo_repeat_on_weekday": "On the {nth, select, 1{first} 2{second} 3{third} 4{fourth} other{last}} {weekday}",
   "@todo_repeat_on_weekday": {
-    "placeholders": { "nth": { "type": "String" }, "weekday": { "type": "String" } }
+    "placeholders": {
+      "nth": {
+        "type": "String"
+      },
+      "weekday": {
+        "type": "String"
+      }
+    }
   },
   "todo_repeat_from_done": "Count from when I finish it",
   "todo_repeat_skip": "Skip this one",
@@ -660,11 +805,19 @@
   "todo_select": "Select",
   "todo_selected": "{count, plural, =1{1 selected} other{{count} selected}}",
   "@todo_selected": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "todo_deleted_many": "{count, plural, =1{Note deleted} other{{count} notes deleted}}",
   "@todo_deleted_many": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "priority_none": "No priority",
   "priority_low": "Low",
@@ -676,18 +829,30 @@
   "pick_a_date": "Pick a date",
   "todo_left": "{count, plural, =0{All done} =1{1 to do} other{{count} to do}}",
   "@todo_left": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "todo_completed_count": "{count, plural, =1{Completed (1)} other{Completed ({count})}}",
   "@todo_completed_count": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "todo_search": "Search to-dos",
   "todo_search_empty": "Nothing matches that",
   "todo_clear_completed": "Clear completed",
   "todo_clear_completed_body": "{count, plural, =1{This deletes the completed to-do.} other{This deletes the {count} completed to-dos.}}",
   "@todo_clear_completed_body": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "prefs_general": "General",
   "prefs_cards": "Cards and calendar",
@@ -740,7 +905,11 @@
   "unit_seconds": "seconds",
   "focus_target_reached": "Target reached",
   "@focus_saved": {
-    "placeholders": { "time": { "type": "String" } }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "focus_pause": "Pause",
   "focus_resume": "Resume",
@@ -762,13 +931,28 @@
   "focus_end_add_time": "Add focused time",
   "focus_amount_added": "{amount} added to {habit}",
   "@focus_end_short": {
-    "placeholders": { "time": { "type": "String" } }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "@focus_end_tasks": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "@focus_amount_added": {
-    "placeholders": { "amount": { "type": "String" }, "habit": { "type": "String" } }
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "habit": {
+        "type": "String"
+      }
+    }
   },
   "focus_personalize": "Custom",
   "focus_track_brown": "Brown noise",
@@ -806,13 +990,17 @@
   "focus_break_in": "Break in {n}",
   "@focus_break_in": {
     "placeholders": {
-      "n": { "type": "String" }
+      "n": {
+        "type": "String"
+      }
     }
   },
   "focus_back_in": "Focus in {n}",
   "@focus_back_in": {
     "placeholders": {
-      "n": { "type": "String" }
+      "n": {
+        "type": "String"
+      }
     }
   },
   "focus_round": "Round {n}",
@@ -823,36 +1011,57 @@
   "select_all": "Select all",
   "selected_count": "{count, plural, =1{1 selected} other{{count} selected}}",
   "@selected_count": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "focus_delete_sessions": "Delete sessions?",
   "focus_delete_sessions_body": "{count, plural, =1{1 focus session will be removed. This cannot be undone.} other{{count} focus sessions will be removed. This cannot be undone.}}",
   "@focus_delete_sessions_body": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "focus_sessions_deleted": "{count, plural, =1{1 session deleted} other{{count} sessions deleted}}",
   "@focus_sessions_deleted": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "unscheduled_title": "Day not scheduled",
   "unscheduled_body": "This habit is not scheduled on {day}. Log it anyway as an extra?",
   "@unscheduled_body": {
-    "placeholders": { "day": { "type": "String" } }
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
   },
   "unscheduled_confirm": "Log anyway",
   "paused_day_title": "Day paused",
   "paused_day_body": "This habit is paused on {day}. Log it anyway?",
   "@paused_day_body": {
-    "placeholders": { "day": { "type": "String" } }
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
   },
   "rest_days_none": "None",
-  "consistency": "Consistency",
   "last_90_days": "Last 90 days",
   "last_12_months": "Last 12 months",
   "consistency_vs_previous": "{change} vs previous",
   "@consistency_vs_previous": {
     "placeholders": {
-      "change": {"type": "String"}
+      "change": {
+        "type": "String"
+      }
     }
   },
   "focus_clear_today": "Clear today's sessions",
@@ -874,7 +1083,11 @@
   "day_timeline": "Day",
   "day_timeline_free": "{span} free",
   "@day_timeline_free": {
-    "placeholders": { "span": { "type": "String" } }
+    "placeholders": {
+      "span": {
+        "type": "String"
+      }
+    }
   },
   "day_timeline_anytime": "Anytime",
   "day_timeline_empty": "Nothing planned for this day",
@@ -894,14 +1107,29 @@
   "focus_history_empty_sub": "Every focus session you finish shows up here.",
   "focus_history_day": "{count, plural, =1{1 session} other{{count} sessions}}",
   "@focus_history_day": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "yesterday": "Yesterday",
   "@focus_round": {
-    "placeholders": { "n": { "type": "int" } }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "@focus_goal_today": {
-    "placeholders": { "done": { "type": "String" }, "goal": { "type": "String" } }
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "goal": {
+        "type": "String"
+      }
+    }
   },
   "notes_hint": "Open a habit and long-press a day on its calendar to see or add notes",
   "app_style": "App style",
@@ -976,25 +1204,48 @@
   "day_clean": "Clean",
   "day_relapses": "{count, plural, =1{1 relapse} other{{count} relapses}}",
   "@day_relapses": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "day_log_relapse": "Log relapse",
   "day_amount": "{value} of {goal}",
   "@day_amount": {
-    "placeholders": { "value": { "type": "String" }, "goal": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "goal": {
+        "type": "String"
+      }
+    }
   },
   "today_filter": "Show",
   "today_fold_done": "Done ({count})",
   "@today_fold_done": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "today_fold_other": "Other days ({count})",
   "@today_fold_other": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "today_fold_hidden": "Hidden ({count})",
   "@today_fold_hidden": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "card_activity": "Activity on cards",
   "card_activity_sub": "Shows the last days on the card, ready to tick",
@@ -1012,7 +1263,11 @@
   "color_theme_custom": "Your colors",
   "color_theme_custom_hint": "{mode, select, dark{These are the colors for dark mode. Switch to light mode to edit those.} other{These are the colors for light mode. Switch to dark mode to edit those.}}",
   "@color_theme_custom_hint": {
-    "placeholders": { "mode": { "type": "String" } }
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
   },
   "color_part_background": "Background",
   "color_part_card": "Cards",
@@ -1040,16 +1295,28 @@
   "focus_only_title": "Needs a focus session",
   "focus_only_body": "\"{name}\" is completed by finishing a focus session.",
   "@focus_only_body": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "focus_only_past": "\"{name}\" is only completed by a focus session, so past days cannot be checked.",
   "@focus_only_past": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "focus_only_clear_title": "Clear this check?",
   "focus_only_clear_body": "Only a focus session can check \"{name}\" again.",
   "@focus_only_clear_body": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "focus_only_start": "Start session",
   "focus_flowtime": "Flowtime",
@@ -1079,7 +1346,11 @@
   },
   "focus_end_flow": "You focused for {time}.",
   "@focus_end_flow": {
-    "placeholders": { "time": { "type": "String" } }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "on": "On",
   "off": "Off",
@@ -1119,20 +1390,30 @@
   "widget_today_done": "{done} of {total} done",
   "@widget_today_done": {
     "placeholders": {
-      "done": { "type": "String" },
-      "total": { "type": "String" }
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "@widget_today_progress": {
     "placeholders": {
-      "done": { "type": "String" },
-      "total": { "type": "String" }
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "widget_todos_open": "To-do  {count}",
   "@widget_todos_open": {
     "placeholders": {
-      "count": { "type": "String" }
+      "count": {
+        "type": "String"
+      }
     }
   },
   "widget_todos_empty": "Nothing left for today",
@@ -1141,20 +1422,30 @@
   "widget_this_week": "This week",
   "widget_last_days": "Last {count} days",
   "@widget_last_days": {
-    "placeholders": { "count": { "type": "String" } }
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
   },
   "widget_cfg_days": "Days shown",
   "widget_week_done": "{done} of {total}",
   "@widget_week_done": {
     "placeholders": {
-      "done": { "type": "String" },
-      "total": { "type": "String" }
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "widget_best_streak": "🔥 {streak} best streak",
   "@widget_best_streak": {
     "placeholders": {
-      "streak": { "type": "String" }
+      "streak": {
+        "type": "String"
+      }
     }
   },
   "widget_cfg_title": "Customize widget",
@@ -1171,14 +1462,18 @@
   "widget_cfg_opacity": "Opacity  {value}%",
   "@widget_cfg_opacity": {
     "placeholders": {
-      "value": { "type": "String" }
+      "value": {
+        "type": "String"
+      }
     }
   },
   "widget_cfg_border": "Border",
   "widget_cfg_thickness": "Thickness  {value}dp",
   "@widget_cfg_thickness": {
     "placeholders": {
-      "value": { "type": "String" }
+      "value": {
+        "type": "String"
+      }
     }
   },
   "widget_cfg_todos_all": "Show every task",
@@ -1219,19 +1514,25 @@
   "notif_streak": "🔥 {streak} day streak",
   "@notif_streak": {
     "placeholders": {
-      "streak": { "type": "String" }
+      "streak": {
+        "type": "String"
+      }
     }
   },
   "notif_streak_week": "🔥 {streak} week streak",
   "@notif_streak_week": {
     "placeholders": {
-      "streak": { "type": "String" }
+      "streak": {
+        "type": "String"
+      }
     }
   },
   "notif_streak_month": "🔥 {streak} month streak",
   "@notif_streak_month": {
     "placeholders": {
-      "streak": { "type": "String" }
+      "streak": {
+        "type": "String"
+      }
     }
   },
   "notif_action_done": "Done",
@@ -1244,42 +1545,54 @@
   "minutes_short": "{value} min",
   "@minutes_short": {
     "placeholders": {
-      "value": { "type": "String" }
+      "value": {
+        "type": "String"
+      }
     }
   },
   "a11y_mark_done": "Mark {name} as done",
   "@a11y_mark_done": {
     "description": "Screen reader label for the button that logs a habit",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "a11y_mark_not_done": "Mark {name} as not done",
   "@a11y_mark_not_done": {
     "description": "Screen reader label for the button that undoes a habit",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "a11y_add_amount": "Add to {name}",
   "@a11y_add_amount": {
     "description": "Screen reader label for the button that adds progress to a quantitative habit",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "a11y_log_relapse": "Log a relapse for {name}",
   "@a11y_log_relapse": {
     "description": "Screen reader label for the button that logs a relapse on a habit to avoid",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "a11y_clear_relapse": "Clear today's relapse for {name}",
   "@a11y_clear_relapse": {
     "description": "Screen reader label for the button that removes today's relapse",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "a11y_not_done": "not done",
@@ -1306,11 +1619,29 @@
   },
   "period_this_week": "This week",
   "tracked_week": "{n} this week",
-  "@tracked_week": {"placeholders": {"n": {"type": "int"}}},
+  "@tracked_week": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "tracked_month": "{n} this month",
-  "@tracked_month": {"placeholders": {"n": {"type": "int"}}},
+  "@tracked_month": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "tracked_year": "{n} this year",
-  "@tracked_year": {"placeholders": {"n": {"type": "int"}}},
+  "@tracked_year": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "period_last_week": "Last week",
   "period_this_month": "This month",
   "period_last_month": "Last month",
@@ -1320,11 +1651,19 @@
   "period_last_year": "Last year",
   "period_week_of": "Week of {date}",
   "@period_week_of": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "focus_period_sessions": "{count, plural, =0{No sessions} =1{1 session} other{{count} sessions}}",
   "@focus_period_sessions": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "notes_all": "All notes",
   "notes_empty_all": "No notes yet",
@@ -1462,13 +1801,25 @@
   "last_check": "Last logged",
   "check_history": "Check history",
   "check_history_sub": "{count} days checked off",
-  "@check_history_sub": {"placeholders": {"count": {"type": "String"}}},
+  "@check_history_sub": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
   "check_never": "Never",
   "check_no_time": "no time saved",
   "heatmap_rolling": "Last 12 months",
   "heatmap_rolling_sub": "The yearly grid ends today instead of on 31 December",
   "check_marks": "{count} marks",
-  "@check_marks": {"placeholders": {"count": {"type": "String"}}},
+  "@check_marks": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
   "today_progress_option": "Progress on Today",
   "today_progress_option_sub": "The day's ring and the strength bar on each habit",
   "quiet_when_done": "Quiet once done",
@@ -1488,7 +1839,13 @@
   "pin_enter": "Enter your PIN",
   "pin_wrong": "Wrong PIN",
   "pin_wait": "Too many tries. Wait {seconds} s",
-  "@pin_wait": {"placeholders": {"seconds": {"type": "String"}}},
+  "@pin_wait": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
   "pin_recovery_title": "Your recovery code",
   "pin_recovery_body": "If you forget the PIN, this code opens Streak and turns the lock off. Keep it somewhere safe: it won't be shown again.",
   "pin_copy": "Copy code",
@@ -1537,13 +1894,21 @@
   "clean_goal_sub": "Pick how many days in a row you want to hold out",
   "clean_goal_left": "{count, plural, =1{1 day to go} other{{count} days to go}}",
   "@clean_goal_left": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "clean_goal_reached": "Goal reached",
   "clean_goal_again": "Your streak keeps going. Keep it up",
   "clean_goal_of": "of {goal}",
   "@clean_goal_of": {
-    "placeholders": { "goal": { "type": "int" } }
+    "placeholders": {
+      "goal": {
+        "type": "int"
+      }
+    }
   },
   "relapse_spent": "Spent on this relapse",
   "money_spent": "Money spent",
@@ -1554,11 +1919,19 @@
   "total_goal_sub": "A target for the whole habit, like 1000 pages or 50 times",
   "total_goal_left": "{amount} to go",
   "@total_goal_left": {
-    "placeholders": { "amount": { "type": "String" } }
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   },
   "total_goal_of": "of {amount}",
   "@total_goal_of": {
-    "placeholders": { "amount": { "type": "String" } }
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   },
   "book": "Book",
   "book_pages": "Pages in the book",
@@ -1566,24 +1939,47 @@
   "book_new": "New book",
   "book_reads": "{count, plural, =0{First read} =1{Read once} other{Read {count} times}}",
   "@book_reads": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "book_read_number": "Read {number}",
   "@book_read_number": {
-    "placeholders": { "number": { "type": "int" } }
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
   },
   "book_since": "Since {day}",
   "@book_since": {
-    "placeholders": { "day": { "type": "String" } }
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
   },
   "book_reading_now": "Reading",
   "book_page": "Page {page} of {pages}",
   "@book_page": {
-    "placeholders": { "page": { "type": "String" }, "pages": { "type": "String" } }
+    "placeholders": {
+      "page": {
+        "type": "String"
+      },
+      "pages": {
+        "type": "String"
+      }
+    }
   },
   "count_times": "{count, plural, =1{1 time} other{{count} times}}",
   "@count_times": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "focus_change_timer": "Change timer",
   "focus_retime_hint": "The time you've already focused is kept.",
@@ -1596,34 +1992,802 @@
   "focus_plan_vs_real": "Planned vs real",
   "focus_avg_longer": "On average, {pct} longer than planned",
   "@focus_avg_longer": {
-    "placeholders": { "pct": { "type": "String" } }
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
   },
   "focus_avg_shorter": "On average, {pct} shorter than planned",
   "@focus_avg_shorter": {
-    "placeholders": { "pct": { "type": "String" } }
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
   },
   "focus_avg_on_plan": "On average, right on plan",
   "focus_session_longer": "{pct} longer than planned",
   "@focus_session_longer": {
-    "placeholders": { "pct": { "type": "String" } }
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
   },
   "focus_session_shorter": "{pct} shorter than planned",
   "@focus_session_shorter": {
-    "placeholders": { "pct": { "type": "String" } }
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
   },
   "focus_session_on_plan": "Right on plan",
   "focus_pauses_avg": "Pauses per session",
   "focus_pause_count": "{count, plural, =0{No pauses} =1{1 pause} other{{count} pauses}}",
   "@focus_pause_count": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "focus_vs_previous": "{change} vs the previous period",
   "@focus_vs_previous": {
-    "placeholders": { "change": { "type": "String" } }
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
   },
   "focus_plan_hint": "Counts from start to finish, pauses included. Only sessions started from now on.",
   "focus_busiest": "Most focused at {hour}",
   "@focus_busiest": {
-    "placeholders": { "hour": { "type": "String" } }
-  }
+    "placeholders": {
+      "hour": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_today": "Today",
+  "planner_schedule": "Schedule",
+  "planner_challenges": "Challenges",
+  "planner_profile": "Profile",
+  "planner_addRoutine": "Add routine",
+  "planner_routine": "Routine",
+  "planner_todaysChallenge": "Today's challenge",
+  "planner_noRoutine": "No routine today",
+  "planner_noChallenge": "No package selected",
+  "planner_tomorrow": "Tomorrow",
+  "planner_chooseTomorrow": "Choose tomorrow's package",
+  "planner_choosePackage": "Choose package",
+  "planner_templates": "Templates",
+  "planner_history": "History",
+  "planner_createPackage": "Create package",
+  "planner_editPackage": "Edit package",
+  "planner_duplicate": "Duplicate",
+  "planner_edit": "Edit",
+  "planner_delete": "Delete",
+  "planner_confirmDelete": "Delete this template?",
+  "planner_deleteTemplateInfo": "Active and historical commitments keep their saved rules.",
+  "planner_packageName": "Package name",
+  "planner_description": "Description",
+  "planner_difficulty": "Difficulty",
+  "planner_easy": "Easy",
+  "planner_medium": "Medium",
+  "planner_hard": "Hard",
+  "planner_tasks": "Tasks",
+  "planner_addTask": "Add task",
+  "planner_editTask": "Edit task",
+  "planner_taskTitle": "Task title",
+  "planner_save": "Save",
+  "planner_cancel": "Cancel",
+  "planner_advanced": "Advanced",
+  "planner_durationDays": "Duration (days)",
+  "planner_completionReward": "Completion reward (XP)",
+  "planner_failurePenalty": "Failure penalty (XP)",
+  "planner_taskReward": "Task reward (XP)",
+  "planner_skipPenalty": "Skip penalty (XP)",
+  "planner_durationMinutes": "Duration (minutes)",
+  "planner_taskDays": "Days (1, 2, ...)",
+  "planner_sequentialSteps": "Sequential steps (one per line)",
+  "planner_target": "Target amount",
+  "planner_unit": "Unit",
+  "planner_mandatory": "Required for completion",
+  "planner_taskTime": "Task time",
+  "planner_clearTime": "Remove time",
+  "planner_moveUp": "Move up",
+  "planner_moveDown": "Move down",
+  "planner_emptyTemplates": "Create your first package",
+  "planner_noHistory": "No commitments yet",
+  "planner_commitment": "Commitment",
+  "planner_previewPackage": "Review package",
+  "planner_selectForDate": "Select for {date}",
+  "@planner_selectForDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_confirmAssignment": "Confirm commitment",
+  "planner_assignmentLocked": "This commitment cannot be cancelled. Task skips use the penalties shown.",
+  "planner_packageReward": "+{xp} XP on completion",
+  "@planner_packageReward": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_taskRewardSummary": "+{xp} XP per task",
+  "@planner_taskRewardSummary": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_skipPenaltySummary": "Skip −{xp} XP",
+  "@planner_skipPenaltySummary": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_failurePenaltySummary": "Failure −{xp} XP",
+  "@planner_failurePenaltySummary": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_commitmentSummary": "{days} days · {minutes} min · up to {xp} XP",
+  "@planner_commitmentSummary": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_active": "Active",
+  "planner_completed": "Completed",
+  "planner_failed": "Failed",
+  "planner_pending": "Pending",
+  "planner_skipped": "Skipped",
+  "planner_remainingTasks": "Remaining tasks",
+  "planner_deadline": "Deadline",
+  "planner_selectedForTomorrow": "Selected for tomorrow",
+  "planner_selectionMissed": "Selection deadline missed",
+  "planner_selectionPenaltyApplied": "Penalty recorded: {xp} XP",
+  "@planner_selectionPenaltyApplied": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_selectionDeadline": "Selection deadline",
+  "planner_missedSelectionPenalty": "Missed-selection penalty (XP)",
+  "planner_dailySelection": "Daily selection",
+  "planner_settings": "Settings",
+  "planner_xpHistory": "XP history",
+  "planner_achievements": "Achievements",
+  "planner_noXpHistory": "No XP transactions yet",
+  "planner_nextLevelXp": "{xp} XP to next level",
+  "@planner_nextLevelXp": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_levelXp": "Level {level} · {xp} XP",
+  "@planner_levelXp": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      },
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_habitFocusTools": "Habit & focus tools",
+  "planner_reminderAccess": "Reminder access",
+  "planner_notificationAccess": "Notification access",
+  "planner_preciseReminders": "Precise reminders",
+  "planner_about": "About",
+  "planner_noAchievements": "No achievements yet",
+  "planner_allTasksComplete": "All tasks complete",
+  "planner_previousWeek": "Previous week",
+  "planner_nextWeek": "Next week",
+  "planner_completedTasks": "{done}/{total} tasks completed",
+  "@planner_completedTasks": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_selectionRulesInfo": "Choose tomorrow's package before {time}. Missing it costs {xp} XP.",
+  "@planner_selectionRulesInfo": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_acknowledged": "OK",
+  "planner_invalidPackageName": "Enter a package name.",
+  "planner_packageNeedsTask": "Add at least one task.",
+  "planner_invalidTaskTitle": "Enter a task title.",
+  "planner_requiredValue": "Enter a valid value.",
+  "planner_packageTasksPackage": "Rules apply to this saved commitment.",
+  "planner_packageDays": "Day numbers within the package duration.",
+  "planner_recordedXp": "Recorded XP",
+  "planner_language": "Language",
+  "planner_moreSettings": "More settings",
+  "planner_chooseTime": "Choose time",
+  "planner_xp": "XP",
+  "planner_noTasks": "No tasks",
+  "planner_selected": "Selected",
+  "planner_missed": "Missed",
+  "planner_penaltyRecorded": "Penalty recorded",
+  "planner_perTask": "Per task",
+  "planner_packageDuration": "Package duration",
+  "planner_requiredTasksRule": "Complete all required tasks and steps before the deadline. Skipping a required task causes failure at the deadline.",
+  "planner_taskOrder": "Task order",
+  "planner_dueDay": "Due day",
+  "planner_remind": "Reminder",
+  "planner_replaceDatesInfo": "Editing this template does not change saved commitments.",
+  "planner_tomorrowPrompt": "Select a package for {date}",
+  "@planner_tomorrowPrompt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_selectionMissedNotice": "Missed selections were recorded. Review XP history for details.",
+  "planner_noCancel": "No cancellation after confirmation.",
+  "planner_amountProgress": "{amount} / {target} {unit}",
+  "@planner_amountProgress": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_createActivity": "Create activity",
+  "planner_createRoutine": "Create routine",
+  "planner_createTask": "Create task",
+  "planner_editActivity": "Edit activity",
+  "planner_deleteActivity": "Delete activity",
+  "planner_title": "Title",
+  "planner_titleHint": "What do you want to make time for?",
+  "planner_invalidActivityTitle": "Give this activity a title.",
+  "planner_descriptionOptional": "Description (optional)",
+  "planner_category": "Category",
+  "planner_categoryPersonal": "Personal",
+  "planner_categoryStudy": "Study",
+  "planner_categoryWork": "Work",
+  "planner_categoryFitness": "Fitness",
+  "planner_categoryRest": "Rest",
+  "planner_when": "When",
+  "planner_firstDate": "Date / first day of the series",
+  "planner_scheduledBlock": "Scheduled time block",
+  "planner_withoutFixedTime": "Turn off for a task without a fixed time",
+  "planner_startTime": "Start · {time}",
+  "@planner_startTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_endTime": "End · {time}",
+  "@planner_endTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_endsNextDay": "Ends the next day",
+  "planner_crossesMidnight": "For activities that cross midnight",
+  "planner_applyChangesTo": "Apply changes to",
+  "planner_entireSeries": "Entire recurring series",
+  "planner_onlyOccurrence": "Only this occurrence",
+  "planner_repeat": "Repeat",
+  "planner_onceOnly": "Once only",
+  "planner_everyDay": "Every day",
+  "planner_selectedWeekdays": "Selected weekdays",
+  "planner_everyNWeeks": "Every N weeks on selected days",
+  "planner_repeatWeeks": "Repeat every (weeks)",
+  "planner_invalidWeeks": "Choose between 1 and 52 weeks.",
+  "planner_remindMe": "Remind me",
+  "planner_repeatsScheduled": "Repeats on each scheduled date",
+  "planner_reminderTimeAt": "Reminder time · {time}",
+  "@planner_reminderTimeAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_reminderSound": "Reminder sound",
+  "planner_defaultSoundPreview": "System default · tap to preview sounds",
+  "planner_selectedSystemTone": "Selected system tone",
+  "planner_vibrate": "Vibrate",
+  "planner_androidReminderInfo": "Android may delay reminders. Sound and vibration follow your notification settings.",
+  "planner_stepsGoals": "Steps & measurable goals",
+  "planner_orderedSteps": "Ordered steps (optional)",
+  "planner_oneStepPerLine": "One step per line",
+  "planner_allStepsInOrder": "All steps must be completed in order.",
+  "planner_optionalTarget": "Target (optional)",
+  "planner_targetExample": "e.g. 20",
+  "planner_positiveTarget": "Enter a positive target.",
+  "planner_unitHint": "pages, km, minutes",
+  "planner_addUnit": "Add a unit.",
+  "planner_prerequisitesOptional": "Prerequisites (optional)",
+  "planner_prerequisiteInfo": "A prerequisite must be completed before this task.",
+  "planner_saving": "Saving…",
+  "planner_saveActivity": "Save activity",
+  "planner_saveTask": "Save task",
+  "planner_invalidOvernight": "For an overnight activity, the end time must be earlier than the start time.",
+  "planner_invalidEndTime": "Choose an end time after the start, or enable crossing midnight.",
+  "planner_selectRepeatDay": "Select at least one repeat weekday.",
+  "planner_activitiesOverlap": "Activities overlap",
+  "planner_overlapSaveInfo": "Overlaps with {names}. Both activities will remain in your schedule.",
+  "@planner_overlapSaveInfo": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_saveBoth": "Save both",
+  "planner_addedPlanner": "Added to your planner",
+  "planner_activityUpdated": "Activity updated",
+  "planner_deleteActivityQuestion": "Delete activity?",
+  "planner_deleteOccurrenceInfo": "Remove this occurrence? Existing history will be retained.",
+  "planner_deleteSeriesInfo": "Remove this activity and future occurrences? Existing history will be retained.",
+  "planner_taskDetails": "Task details",
+  "planner_challengeTask": "Challenge task",
+  "planner_challenge": "Challenge",
+  "planner_routineTask": "Routine activity",
+  "planner_rewardOnce": "Completion: +{xp} XP",
+  "@planner_rewardOnce": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_overlapNames": "Overlaps with {names}",
+  "@planner_overlapNames": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_prerequisites": "Prerequisites",
+  "planner_prerequisitesInfo": "Complete the required preceding tasks first.",
+  "planner_reminderEnabled": "Reminder enabled",
+  "planner_noReminder": "No reminder",
+  "planner_adjustReminder": "Tap to adjust time, sound & vibration",
+  "planner_chooseReminder": "Choose a reminder for this task",
+  "planner_stepsProgress": "Steps · {done}/{total}",
+  "@planner_stepsProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_previousStepFirst": "Complete the previous step first",
+  "planner_measuredProgress": "Measured progress",
+  "planner_recordAmount": "Record amount",
+  "planner_endedPackageInfo": "This package has ended. These tasks remain in its history.",
+  "planner_availableOn": "Available on {date}.",
+  "@planner_availableOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_markComplete": "Mark complete",
+  "planner_skipTaskQuestion": "Skip this task?",
+  "planner_skipInfo": "Penalty: {xp} XP. Skipping a required task prevents package completion.",
+  "@planner_skipInfo": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_skipTask": "Skip task",
+  "planner_skipWithPenalty": "Skip with penalty",
+  "planner_recordTotalAmount": "Record total amount",
+  "planner_totalCompleted": "Total completed",
+  "planner_totalNotAdditional": "Enter your total, not an additional amount.",
+  "planner_nonnegativeAmount": "Enter a valid amount of zero or more.",
+  "planner_goBack": "Go back",
+  "planner_saveAmount": "Save amount",
+  "planner_notificationsBlocked": "Notifications are blocked. Enable them in Settings or Android app settings.",
+  "planner_taskReminder": "Task reminder",
+  "planner_enableReminder": "Enable reminder",
+  "planner_reminderTime": "Reminder time",
+  "planner_sound": "Sound",
+  "planner_choosePreviewSound": "Tap to choose & preview",
+  "planner_applyEveryOccurrence": "Apply to every occurrence of this task",
+  "planner_fixedPackageRules": "Package rules and rewards remain fixed.",
+  "planner_saveReminder": "Save reminder",
+  "planner_anyTime": "Any time",
+  "planner_nextDaySuffix": "(+1 day)",
+  "planner_confirm": "Confirm",
+  "planner_timeConflict": "Time conflict",
+  "planner_overdueDate": "Overdue · {date}",
+  "@planner_overdueDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_stepsShort": "{done}/{total} steps",
+  "@planner_stepsShort": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_routineNoXp": "Routine completion does not award XP.",
+  "planner_transactionTaskReward": "Task completed: {title}",
+  "@planner_transactionTaskReward": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_transactionPackageReward": "Package completed: {title}",
+  "@planner_transactionPackageReward": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_transactionTaskSkip": "Task skipped: {title}",
+  "@planner_transactionTaskSkip": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_transactionPackageFailure": "Package failed: {title}",
+  "@planner_transactionPackageFailure": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_transactionMissedSelection": "Missed package selection for {date}",
+  "@planner_transactionMissedSelection": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_achievementFirst": "First completion",
+  "planner_achievementTen": "10 completions",
+  "planner_achievementStreak": "7-day streak",
+  "planner_achievementPackage": "First challenge completed",
+  "planner_achievementLevel": "Level 5",
+  "planner_genericError": "Unable to complete this action. Please check the task and try again.",
+  "planner_minutes": "min",
+  "planner_optional": "Optional",
+  "planner_notificationReady": "Your next step is ready.",
+  "planner_notificationSilent": "Level Up · Silent reminders",
+  "planner_notificationChannel": "Level Up reminders",
+  "planner_notificationChannelDescription": "Routine and challenge reminders",
+  "planner_notificationComplete": "Complete / review",
+  "planner_notificationSnooze": "Snooze 10 min",
+  "planner_taskCompleted": "Task completed",
+  "planner_reminderSnoozed": "Reminder snoozed for 10 minutes.",
+  "planner_reminderUnavailable": "This reminder is no longer available.",
+  "planner_builtinSteadyName": "Steady start",
+  "planner_builtinSteadyDescription": "Build a deliberate start to your day with a small, repeatable focus block.",
+  "planner_builtinStudyName": "Study rhythm",
+  "planner_builtinStudyDescription": "One week of focused study, followed by a short review. Your existing commitments stay in place.",
+  "planner_builtinFitnessName": "Fitness foundation",
+  "planner_builtinFitnessDescription": "A demanding week of planned movement and recovery. Choose an appropriate exercise intensity for yourself.",
+  "planner_builtinFocus": "A focused start",
+  "planner_builtinStudy": "Deep study",
+  "planner_builtinReview": "Recall and review",
+  "planner_builtinWorkout": "Workout sequence",
+  "planner_builtinRecovery": "Recovery and mobility",
+  "planner_builtinPriority": "Choose one priority",
+  "planner_builtinFocusMinutes": "Focus for 15 minutes",
+  "planner_builtinNextAction": "Write the next action",
+  "planner_builtinRecall": "Recall the key ideas",
+  "planner_builtinQuestion": "Record a question for tomorrow",
+  "planner_builtinWarmup": "Warm up",
+  "planner_builtinPlannedWorkout": "Complete your planned workout",
+  "planner_builtinCooldown": "Cool down",
+  "planner_builtinRecordSession": "Record the session",
+  "planner_achievementSeven": "Seven days of qualifying activity",
+  "planner_achievementHard": "First hard package completed",
+  "planner_achievementFifty": "Fifty tasks completed",
+  "planner_enabled": "Enabled",
+  "planner_disabled": "Disabled",
+  "planner_templateNotFound": "Package template not found.",
+  "planner_alreadyAssigned": "A package is already assigned to this date.",
+  "planner_invalidSelectionRules": "Daily selection rules are invalid.",
+  "planner_errorChallengeEdit": "Challenge task definitions cannot be edited.",
+  "planner_errorRoutineMissing": "The recurring activity no longer exists.",
+  "planner_errorTaskMissing": "This task is no longer available.",
+  "planner_errorTaskDate": "Task date is invalid.",
+  "planner_errorAvailableDate": "This task becomes available on {date}.",
+  "@planner_errorAvailableDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_errorPrerequisiteTitle": "Complete the prerequisite first: {title}.",
+  "@planner_errorPrerequisiteTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_errorTargetFirst": "Record the full target amount before completing this task.",
+  "planner_errorNoTarget": "This task has no amount target.",
+  "planner_errorFutureSkip": "Future tasks cannot be skipped early.",
+  "planner_errorPastChallenge": "A challenge cannot start in the past.",
+  "planner_errorTimes": "Set both start and end times.",
+  "planner_errorTimeRange": "Times must be within a day.",
+  "planner_errorReminderTime": "Reminder time is invalid.",
+  "planner_errorReminderLead": "Reminder lead time is invalid.",
+  "planner_errorSelfDependency": "A task cannot depend on itself.",
+  "planner_errorCycle": "Task prerequisites cannot form a cycle.",
+  "planner_errorSameDayPrerequisite": "Package prerequisites must be scheduled on the same day.",
+  "planner_errorUniqueTaskIds": "Package task identifiers must be unique.",
+  "planner_errorTaskRules": "Task rules are invalid.",
+  "planner_softChime": "Level Up · Soft chime",
+  "planner_brightChime": "Level Up · Bright chime",
+  "planner_errorTargetAmount": "Record at least {amount} {unit} first.",
+  "@planner_errorTargetAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_timeline": "Timeline",
+  "planner_returnToday": "Return to today",
+  "planner_now": "Now",
+  "planner_freeTime": "Free time",
+  "planner_allDay": "Without a time",
+  "planner_emptyTimeline": "An open day",
+  "planner_continuesPreviousDay": "Continues from the previous day",
+  "planner_continuesNextDay": "Continues into the next day",
+  "planner_overlaps": "Overlapping activities",
+  "planner_earlierDays": "Earlier days",
+  "planner_timelineEvent": "{title}, {start} to {end}, {status}, {type}",
+  "@planner_timelineEvent": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_builderIdentity": "Package identity",
+  "planner_builderTasks": "Shape your tasks",
+  "planner_builderRewards": "Reward & review",
+  "planner_builderStep": "{current} of {total}",
+  "@planner_builderStep": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_builderNext": "Continue",
+  "planner_builderPrevious": "Previous",
+  "planner_builderIdentityHint": "Give your commitment a name and a category.",
+  "planner_builderTasksHint": "Add tasks, or open a group to build its children.",
+  "planner_builderRewardsHint": "Earn this reward once all required tasks are complete.",
+  "planner_categoryName": "Category name",
+  "planner_newCategory": "New category",
+  "planner_manageCategories": "Manage categories",
+  "planner_renameCategory": "Rename category",
+  "planner_deleteCategory": "Delete category",
+  "planner_noCategory": "No category",
+  "planner_categoryDeleteInfo": "Packages keep their category name. You can choose another category later.",
+  "planner_noCategories": "Create a category that matches your goals.",
+  "planner_addTaskGroup": "Add group",
+  "planner_taskGroup": "Task group",
+  "planner_groupName": "Group name",
+  "planner_editGroup": "Edit group",
+  "planner_groupChildren": "{count, plural, one{{count} task} other{{count} tasks}}",
+  "@planner_groupChildren": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "planner_emptyGroup": "Add at least one task inside this group.",
+  "planner_parentPackage": "Package",
+  "planner_returnToParent": "Back to parent",
+  "planner_flexibleTask": "Flexible",
+  "planner_flexibleTaskHint": "Complete it when it fits your day.",
+  "planner_scheduledTask": "Scheduled",
+  "planner_scheduledTaskHint": "Reserve a specific time for this task.",
+  "planner_taskType": "Task type",
+  "planner_chooseStartTime": "Choose start",
+  "planner_chooseEndTime": "Choose end",
+  "planner_invalidTaskInterval": "Choose different start and end times.",
+  "planner_taskTimeConflict": "This overlaps another task in this package.",
+  "planner_optionalReminder": "Optional reminder",
+  "planner_packageRewardLabel": "Package completion reward",
+  "planner_packagePenalty": "Package failure penalty",
+  "planner_savePackage": "Save package",
+  "planner_packagePreview": "Your package",
+  "planner_packageTaskCount": "{count, plural, one{{count} task} other{{count} tasks}}",
+  "@planner_packageTaskCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "planner_preservedConditions": "Saved task conditions",
+  "planner_preservedConditionsInfo": "This existing task keeps its saved steps, targets, dates and prerequisites.",
+  "planner_noTasksYet": "Start with one small step.",
+  "planner_groupDeleteInfo": "Delete this group and all its child tasks?",
+  "planner_deleteTaskInfo": "Remove this task from the package?",
+  "planner_packageSummaryShort": "{count, plural, one{{count} task} other{{count} tasks}} · {xp} XP",
+  "@planner_packageSummaryShort": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_groupProgress": "{done}/{total} required tasks complete",
+  "@planner_groupProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_groupCompletionRule": "This group completes when all its required tasks are complete.",
+  "planner_skipPackageTaskInfo": "Skipping a required task prevents package completion. The package failure penalty applies at the deadline.",
+  "planner_legacyRewardRules": "This saved challenge keeps its original task rewards and penalties.",
+  "planner_invalidCategoryName": "Enter a category name.",
+  "planner_categoryNameExists": "A category with this name already exists.",
+  "planner_categoryMissing": "This category no longer exists.",
+  "planner_invalidTaskTree": "Task groups must form a valid tree.",
+  "planner_groupChildrenFirst": "Complete every required child task first.",
+  "planner_skipOptionalPackageTaskInfo": "This optional task will be marked skipped. Required tasks still determine package completion.",
+  "planner_completionShort": "Completion",
+  "planner_failureShort": "Failure",
+  "planner_taskSkipShort": "Task skip",
+  "planner_skipDeduction": "Deduction now: {xp} XP.",
+  "@planner_skipDeduction": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_cloudAccount": "Cloud account",
+  "planner_cloudSignIn": "Sign in",
+  "planner_cloudRegister": "Create account",
+  "planner_cloudEmail": "Email",
+  "planner_cloudPassword": "Password",
+  "planner_cloudSignInHint": "Sign in to sync and restore your planner.",
+  "planner_cloudSyncNow": "Sync now",
+  "planner_cloudSignOut": "Sign out",
+  "planner_cloudUnconfigured": "Cloud sync is not configured for this build.",
+  "planner_cloudOffline": "Offline",
+  "planner_cloudSynced": "Synchronized",
+  "planner_cloudSyncing": "Synchronizing…",
+  "planner_cloudPending": "Pending: {count}",
+  "planner_cloudConflict": "Cloud data changed on another device.",
+  "planner_cloudRejected": "The server could not accept these changes. Your local changes are kept.",
+  "planner_cloudRestoreCloud": "Use cloud version",
+  "planner_cloudRestoreInfo": "Use the cloud version? Your pending changes will be kept in a private local archive.",
+  "planner_cloudSessionExpired": "Sign in again to continue syncing.",
+  "planner_cloudNetworkError": "Connection unavailable. Your changes stay on this device.",
+  "planner_cloudInvalidCredentials": "Check your email and password.",
+  "planner_cloudEmailExists": "An account with this email already exists.",
+  "planner_cloudInvalidEmail": "Enter a valid email address.",
+  "planner_cloudInvalidPassword": "Enter your password.",
+  "planner_cloudAuthFailed": "Unable to sign in. Please try again.",
+  "planner_cloudRateLimited": "Too many attempts. Try again shortly.",
+  "planner_cloudServerUnavailable": "Cloud service is unavailable. Try again later.",
+  "planner_cloudRestoring": "Restoring your planner…",
+  "planner_cloudSignOutInfo": "Sign out? Your unsynchronized changes will be kept privately on this device.",
+  "planner_cloudKeepOffline": "Continue offline",
+  "planner_cloudDraftArchived": "Your local changes were archived.",
+  "planner_cloudLocalOnly": "Stored on this device",
+  "@planner_cloudPending": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_cloudExportDraft": "Export local draft",
+  "planner_cloudPasswordRule": "Use at least 12 characters, up to 72 UTF-8 bytes.",
+  "planner_cloudQueueFull": "Sync or export your pending changes before adding more. Your existing changes are kept."
 }

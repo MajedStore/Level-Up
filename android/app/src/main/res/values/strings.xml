@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Streak</string>
+    <string name="app_name">Level Up</string>
     <string name="widget_description">Track your habits and build streaks</string>
     <string name="widget_heatmap_label">Streak heatmap</string>
     <string name="widget_habit_label">Streak habits</string>

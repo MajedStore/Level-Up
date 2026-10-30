@@ -21,8 +21,14 @@ class TodosWidgetService {
 
   static Timer? _pendingSync;
 
-  static void syncSoon(List<Todo> todos) {
+  /// Stop deferred reads before the backing store is closed or replaced.
+  static void cancelPendingSync() {
     _pendingSync?.cancel();
+    _pendingSync = null;
+  }
+
+  static void syncSoon(List<Todo> todos) {
+    cancelPendingSync();
     _pendingSync = Timer(const Duration(milliseconds: 700), () {
       _pendingSync = null;
       sync(todos);
@@ -30,8 +36,7 @@ class TodosWidgetService {
   }
 
   static Future<void> sync(List<Todo> todos) async {
-    _pendingSync?.cancel();
-    _pendingSync = null;
+    cancelPendingSync();
     if (!hasHomeWidgets) return;
     try {
       await HomeWidgetService.prepare();
@@ -44,19 +49,19 @@ class TodosWidgetService {
 
   static String _encode(List<Todo> todos) {
     final today = AppClock.today();
-    final listed = [
-      for (final section in groupPending(
-        todos,
-        today,
-        lowFirst: LocalStore.setting('todoLowFirst', false),
-      ))
-        ...section.todos,
-    ].take(_maxTodos).toList()
-      ..addAll(
-        sortCompleted(todos)
-            .where((todo) => todo.doneAt?.atMidnight == today)
-            .take(_maxDone),
-      );
+    final listed =
+        [
+          for (final section in groupPending(
+            todos,
+            today,
+            lowFirst: LocalStore.setting('todoLowFirst', false),
+          ))
+            ...section.todos,
+        ].take(_maxTodos).toList()..addAll(
+          sortCompleted(
+            todos,
+          ).where((todo) => todo.doneAt?.atMidnight == today).take(_maxDone),
+        );
 
     return json.encode({
       'epochDay': today.epochDay,

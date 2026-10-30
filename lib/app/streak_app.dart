@@ -7,13 +7,13 @@ import 'package:provider/provider.dart';
 import 'package:streak/core/i18n/app_locale.dart';
 import 'package:streak/app/app_background.dart';
 import 'package:streak/app/app_lock.dart';
-import 'package:streak/app/home_shell.dart';
+import 'package:streak/features/planner/pages/level_up_shell.dart';
 import 'package:streak/app/theme/app_theme.dart';
+import 'package:streak/app/theme/app_typography.dart';
 import 'package:streak/core/i18n/l10n.dart';
 import 'package:streak/core/routing/app_navigator.dart';
 import 'package:streak/core/utils/responsive.dart';
 import 'package:streak/features/habits/state/habits_controller.dart';
-import 'package:streak/features/onboarding/pages/onboarding_page.dart';
 import 'package:streak/features/settings/state/settings_controller.dart';
 import 'package:streak/services/home_widget_service.dart';
 
@@ -25,7 +25,7 @@ class StreakApp extends StatelessWidget {
     final settings = context.watch<SettingsController>();
 
     return MaterialApp(
-      title: 'Streak',
+      title: 'Level Up',
       debugShowCheckedModeBanner: false,
       navigatorKey: AppNavigator.key,
       theme: AppTheme.light(
@@ -45,21 +45,31 @@ class StreakApp extends StatelessWidget {
           () => context.read<HabitsController>().asMap,
         );
         final media = MediaQuery.of(context);
-        return MediaQuery(
-          data: settings.animations
-              ? media
-              : media.copyWith(disableAnimations: true),
-          child: AnnotatedRegion<SystemUiOverlayStyle>(
-          value: AppTheme.systemBars(Theme.of(context).brightness),
-          child: AppLockGate(
-            child: AppBackground(
-              child: _DesktopFrame(
-                shell: settings.onboardingDone,
-                child: child ?? const SizedBox.shrink(),
+        final typography = AppTypography.forLocale(
+          Theme.of(context),
+          Localizations.localeOf(context),
+        );
+        return Theme(
+          data: typography,
+          child: DefaultTextStyle(
+            style: typography.textTheme.bodyMedium!,
+            child: MediaQuery(
+              data: settings.animations
+                  ? media
+                  : media.copyWith(disableAnimations: true),
+              child: AnnotatedRegion<SystemUiOverlayStyle>(
+                value: AppTheme.systemBars(Theme.of(context).brightness),
+                child: AppLockGate(
+                  child: AppBackground(
+                    child: _DesktopFrame(
+                      shell: true,
+                      child: child ?? const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
         );
       },
       locale: settings.locale,
@@ -71,9 +81,7 @@ class StreakApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: settings.onboardingDone
-          ? const HomeShell()
-          : const OnboardingPage(),
+      home: const LevelUpShell(),
     );
   }
 }

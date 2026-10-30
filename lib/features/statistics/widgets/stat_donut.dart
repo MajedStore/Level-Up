@@ -60,9 +60,9 @@ class _HabitDonutState extends State<HabitDonut> with TickerProviderStateMixin {
   double _at(List<double> values, int i) => i < values.length ? values[i] : 0;
 
   List<double> get _expansion => [
-        for (var i = 0; i < widget.entries.length; i++)
-          _at(_from, i) + (_at(_to, i) - _at(_from, i)) * _select.value,
-      ];
+    for (var i = 0; i < widget.entries.length; i++)
+      _at(_from, i) + (_at(_to, i) - _at(_from, i)) * _select.value,
+  ];
 
   void _tap(int? index) {
     if (index == _selected) return;
@@ -316,13 +316,16 @@ class _DonutLayout {
   double get inner => outer - thickness;
 
   double turnX(bool onRight, double kneeX) => onRight
-      ? math.max(size.width - _labelMinWidth - _labelEdge * 2, kneeX + _leaderRun)
+      ? math.max(
+          size.width - _labelMinWidth - _labelEdge * 2,
+          kneeX + _leaderRun,
+        )
       : math.min(_labelMinWidth + _labelEdge * 2, kneeX - _leaderRun);
 
   double labelWidth(bool onRight, double turn) => math.max(
-        onRight ? size.width - turn - _labelEdge * 2 : turn - _labelEdge * 2,
-        40,
-      );
+    onRight ? size.width - turn - _labelEdge * 2 : turn - _labelEdge * 2,
+    40,
+  );
 
   int? hit(Offset point) {
     final vector = point - centre;
@@ -375,8 +378,10 @@ class _DonutPainter extends CustomPainter {
     for (var i = 0; i < layout.slices.length; i++) {
       final slice = layout.slices[i];
       final grown = _grown(i);
-      final drawn =
-          (swept - (slice.start + math.pi / 2)).clamp(0.0, slice.sweep);
+      final drawn = (swept - (slice.start + math.pi / 2)).clamp(
+        0.0,
+        slice.sweep,
+      );
       if (drawn <= 0) continue;
 
       final radius = layout.outer - layout.thickness / 2 + grown * 6;
@@ -392,8 +397,9 @@ class _DonutPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = stroke
           ..strokeCap = StrokeCap.round
-          ..color =
-              slice.entry.color.withValues(alpha: 1 - (focus - grown) * 0.72),
+          ..color = slice.entry.color.withValues(
+            alpha: 1 - (focus - grown) * 0.72,
+          ),
       );
     }
 
@@ -418,6 +424,7 @@ class _DonutPainter extends CustomPainter {
       slice.entry.name,
       TextStyle(
         fontFamily: font,
+        fontFamilyFallback: const ['Cairo'],
         fontSize: 12.5,
         fontWeight: FontWeight.w700,
         height: 1.15,
@@ -430,6 +437,7 @@ class _DonutPainter extends CustomPainter {
       '${slice.entry.count} · ${(slice.entry.count * 100 / total).round()}%',
       TextStyle(
         fontFamily: font ?? 'Figtree',
+        fontFamilyFallback: const ['Cairo'],
         fontSize: 11,
         fontWeight: FontWeight.w800,
         height: 1.15,
@@ -464,23 +472,34 @@ class _DonutPainter extends CustomPainter {
     );
 
     if (text <= 0) return;
-    final left =
-        slice.onRight ? turnX + _labelEdge : turnX - _labelEdge - width;
+    final left = slice.onRight
+        ? turnX + _labelEdge
+        : turnX - _labelEdge - width;
     final top = centreY - blockHeight / 2;
     final drift = (1 - text) * 6 * (slice.onRight ? 1 : -1);
     _write(canvas, labelText, left, top, drift, slice.onRight, width);
-    _write(canvas, subText, left, top + labelText.height + 3, drift,
-        slice.onRight, width);
+    _write(
+      canvas,
+      subText,
+      left,
+      top + labelText.height + 3,
+      drift,
+      slice.onRight,
+      width,
+    );
   }
 
-  TextPainter _painter(String text, TextStyle style, double width,
-          {int maxLines = 1}) =>
-      TextPainter(
-        text: TextSpan(text: text, style: style),
-        textDirection: ui.TextDirection.ltr,
-        maxLines: maxLines,
-        ellipsis: '…',
-      )..layout(maxWidth: width);
+  TextPainter _painter(
+    String text,
+    TextStyle style,
+    double width, {
+    int maxLines = 1,
+  }) => TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: ui.TextDirection.ltr,
+    maxLines: maxLines,
+    ellipsis: '…',
+  )..layout(maxWidth: width);
 
   void _write(
     Canvas canvas,

@@ -21,13 +21,18 @@ class FolderSync {
       <String, ({DateTime modified, DateTime? at, String device})>{};
 
   static Future<int> pull() async {
+    // Shared-folder imports are device scoped, not authenticated account data.
+    if (LocalStore.settingMap('levelUpCloudCache')['ownerId'] is String) {
+      return 0;
+    }
     final folder = LocalStore.setting('autoBackupFolder', '');
     if (folder.isEmpty) return 0;
     try {
       final since = DateTime.tryParse(LocalStore.setting(_seenKey, ''));
       final seen = {
-        for (final MapEntry(:key, :value)
-            in LocalStore.settingMap(_seenByKey).entries)
+        for (final MapEntry(:key, :value) in LocalStore.settingMap(
+          _seenByKey,
+        ).entries)
           if (DateTime.tryParse('$value') case final at?) key: at,
       };
       final batch = incoming(Directory(folder), since, seen);
@@ -112,7 +117,9 @@ class FolderSync {
     return dir
         .listSync()
         .whereType<File>()
-        .where((f) => _name(f).startsWith(_prefix) && _name(f).endsWith('.json'))
+        .where(
+          (f) => _name(f).startsWith(_prefix) && _name(f).endsWith('.json'),
+        )
         .toList()
       ..sort((a, b) => _name(b).compareTo(_name(a)));
   }
@@ -122,8 +129,9 @@ class FolderSync {
 
   static Future<int> _take(BackupData data) async {
     final stamps = data.changes;
-    var brought =
-        LocalStore.setting('autoSync', false) ? await _forget(data.deleted) : 0;
+    var brought = LocalStore.setting('autoSync', false)
+        ? await _forget(data.deleted)
+        : 0;
 
     for (final theirs in data.habits) {
       final id = theirs.id;
@@ -158,15 +166,40 @@ class FolderSync {
       await LocalStore.mergeCategory(category);
     }
     bool orphan(String habitId) =>
-        LocalStore.habit(habitId) == null && LocalStore.deletedAt(habitId) != null;
-    brought += await _records(data.notes.where((n) => !orphan(n.habitId)), stamps,
-        (n) => n.id, LocalStore.note, (n) => n.toMap(), LocalStore.writeNote);
-    brought += await _records(data.focus.where((f) => !orphan(f.habitId)), stamps,
-        (f) => f.id, LocalStore.focusSession, (f) => f.toMap(), LocalStore.writeFocusSession);
-    brought += await _records(data.todos, stamps, (t) => t.id,
-        LocalStore.todo, (t) => t.toMap(), LocalStore.writeTodo);
-    brought += await _records(data.todoTags, stamps, (t) => t.id,
-        LocalStore.todoTag, (t) => t.toMap(), LocalStore.writeTodoTag);
+        LocalStore.habit(habitId) == null &&
+        LocalStore.deletedAt(habitId) != null;
+    brought += await _records(
+      data.notes.where((n) => !orphan(n.habitId)),
+      stamps,
+      (n) => n.id,
+      LocalStore.note,
+      (n) => n.toMap(),
+      LocalStore.writeNote,
+    );
+    brought += await _records(
+      data.focus.where((f) => !orphan(f.habitId)),
+      stamps,
+      (f) => f.id,
+      LocalStore.focusSession,
+      (f) => f.toMap(),
+      LocalStore.writeFocusSession,
+    );
+    brought += await _records(
+      data.todos,
+      stamps,
+      (t) => t.id,
+      LocalStore.todo,
+      (t) => t.toMap(),
+      LocalStore.writeTodo,
+    );
+    brought += await _records(
+      data.todoTags,
+      stamps,
+      (t) => t.id,
+      LocalStore.todoTag,
+      (t) => t.toMap(),
+      LocalStore.writeTodoTag,
+    );
     return brought;
   }
 
@@ -239,7 +272,8 @@ class FolderSync {
       if (_buried(id, stamps[id])) continue;
       final mine = ours(id);
       if (mine != null &&
-          (!_theirsNewer(stamps[id], id) || _same(mapOf(mine), mapOf(theirs)))) {
+          (!_theirsNewer(stamps[id], id) ||
+              _same(mapOf(mine), mapOf(theirs)))) {
         continue;
       }
       brought++;
@@ -288,7 +322,8 @@ class FolderSync {
         out[entry.key] = other;
         continue;
       }
-      final kept = other.count > mine.count ||
+      final kept =
+          other.count > mine.count ||
               (other.count == mine.count &&
                   other.marks.length > mine.marks.length)
           ? other

@@ -41,14 +41,24 @@ class WidgetPayloadTest {
     private fun key(index: Int) = String.format("%02d-08-2026", index + 10)
 
     @Test
-    fun `keeps the week ending today`() {
+    fun `keeps seven history dates including today and six future dates`() {
         val out = WidgetPayload.align(payload(), key(6))
         val days = out.getJSONArray("days")
+        val habit = out.getJSONArray("habits").getJSONObject(0)
 
-        assertEquals(7, days.length())
+        assertEquals(13, days.length())
         assertEquals(key(0), days.getJSONObject(0).getString("key"))
         assertEquals(key(6), days.getJSONObject(6).getString("key"))
+        assertEquals(key(12), days.getJSONObject(12).getString("key"))
         assertTrue(days.getJSONObject(6).getBoolean("isToday"))
+        for (i in 0 until days.length()) {
+            assertEquals(key(i), days.getJSONObject(i).getString("key"))
+            assertEquals(i == 6, days.getJSONObject(i).getBoolean("isToday"))
+        }
+        for (name in listOf("completions", "counts", "scheduled")) {
+            assertEquals(13, habit.getJSONArray(name).length())
+        }
+        assertEquals(1.0, habit.getJSONArray("counts").getDouble(6), 0.0)
     }
 
     @Test
@@ -78,13 +88,26 @@ class WidgetPayloadTest {
     }
 
     @Test
-    fun `falls back to the oldest week when the clock goes back`() {
+    fun `keeps the oldest thirteen known dates when the clock goes back`() {
         val out = WidgetPayload.align(payload(), key(2))
         val days = out.getJSONArray("days")
+        val habit = out.getJSONArray("habits").getJSONObject(0)
 
-        assertEquals(7, days.length())
+        // The payload cannot invent history before key(0). Keep its forward
+        // buffer and mark the actual date instead of shifting completion data.
+        assertEquals(13, days.length())
         assertEquals(key(0), days.getJSONObject(0).getString("key"))
+        assertEquals(key(12), days.getJSONObject(12).getString("key"))
         assertTrue(days.getJSONObject(2).getBoolean("isToday"))
+        for (i in 0 until days.length()) {
+            assertEquals(key(i), days.getJSONObject(i).getString("key"))
+            assertEquals(i == 2, days.getJSONObject(i).getBoolean("isToday"))
+        }
+        for (name in listOf("completions", "counts", "scheduled")) {
+            assertEquals(13, habit.getJSONArray(name).length())
+        }
+        assertEquals(true, habit.getJSONArray("completions").getBoolean(6))
+        assertEquals(false, habit.getJSONArray("completions").getBoolean(2))
     }
 
     @Test

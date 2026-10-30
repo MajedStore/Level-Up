@@ -34,7 +34,17 @@ object SoundBridge {
 
     private fun list(context: Context): List<Map<String, String>> {
         val base = MediaStore.Audio.Media.INTERNAL_CONTENT_URI
-        val sounds = mutableListOf<Map<String, String>>()
+        // Original synthesized tones, dedicated to CC0; no third-party samples.
+        val sounds = mutableListOf(
+            mapOf(
+                "title" to "Level Up · Soft chime",
+                "uri" to "android.resource://${context.packageName}/raw/levelup_soft",
+            ),
+            mapOf(
+                "title" to "Level Up · Bright chime",
+                "uri" to "android.resource://${context.packageName}/raw/levelup_bright",
+            ),
+        )
         try {
             context.contentResolver.query(
                 base,

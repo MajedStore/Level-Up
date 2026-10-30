@@ -8,6 +8,7 @@ const backupJsonName = 'backup.json';
 const _files = 'files';
 
 const backupSettingKeys = {
+  'levelUpState',
   'accentColor',
   'appBackground',
   'appStyle',
@@ -101,13 +102,13 @@ class BackupArchive {
     final packed = <String, String>{};
 
     Object? swap(Object? value) => switch (value) {
-          Map() => {
-              for (final entry in value.entries) '${entry.key}': swap(entry.value),
-            },
-          List() => [for (final item in value) swap(item)],
-          String() => _packed(value, packed),
-          _ => value,
-        };
+      Map() => {
+        for (final entry in value.entries) '${entry.key}': swap(entry.value),
+      },
+      List() => [for (final item in value) swap(item)],
+      String() => _packed(value, packed),
+      _ => value,
+    };
 
     final json = const JsonEncoder.withIndent('  ').convert(swap(payload));
     for (final entry in packed.entries) {
@@ -152,8 +153,10 @@ class BackupArchive {
         if (inside.split('/').any((part) => part.isEmpty || part == '..')) {
           continue;
         }
-        final dest =
-            _freeSpot(File('$dataDir/$inside'), file.uncompressedSize ?? -1);
+        final dest = _freeSpot(
+          File('$dataDir/$inside'),
+          file.uncompressedSize ?? -1,
+        );
         dest.parent.createSync(recursive: true);
         if (!dest.existsSync()) _extract(file, dest.path);
         placed[name] = dest.path;
@@ -161,14 +164,13 @@ class BackupArchive {
       if (json == null) return null;
       final raw = utf8.decode(json.content, allowMalformed: true);
       Object? swap(Object? value) => switch (value) {
-            Map() => {
-                for (final entry in value.entries)
-                  '${entry.key}': swap(entry.value),
-              },
-            List() => [for (final item in value) swap(item)],
-            String() => _unpacked(value, placed),
-            _ => value,
-          };
+        Map() => {
+          for (final entry in value.entries) '${entry.key}': swap(entry.value),
+        },
+        List() => [for (final item in value) swap(item)],
+        String() => _unpacked(value, placed),
+        _ => value,
+      };
 
       return jsonEncode(swap(jsonDecode(raw)));
     } finally {
@@ -195,9 +197,11 @@ class BackupArchive {
 
   static File _freeSpot(File file, int length) {
     var candidate = file;
-    for (var i = 2;
-        candidate.existsSync() && candidate.lengthSync() != length;
-        i++) {
+    for (
+      var i = 2;
+      candidate.existsSync() && candidate.lengthSync() != length;
+      i++
+    ) {
       final name = file.uri.pathSegments.last;
       candidate = File('${file.parent.path}/${i}_$name');
     }

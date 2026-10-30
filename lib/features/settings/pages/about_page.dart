@@ -60,50 +60,50 @@ class _AboutPageState extends State<AboutPage> {
 
     final nameStyle = switch (style) {
       2 => ExpressType.display.at(
-          48,
-          height: 1,
-          spacing: -0.6,
-          color: scheme.onSurface,
-        ),
+        48,
+        height: 1,
+        spacing: -0.6,
+        color: scheme.onSurface,
+      ),
       1 => MinimalType.display(46, color: scheme.onSurface, height: 1),
       _ => TextStyle(
-          fontFamily: AppTheme.classicFont,
-          fontSize: 46,
-          fontWeight: FontWeight.w800,
-          height: 1.0,
-          letterSpacing: -1,
-          color: scheme.onSurface,
-        ),
+        fontFamily: AppTheme.classicFont,
+        fontSize: 46,
+        fontWeight: FontWeight.w800,
+        height: 1.0,
+        letterSpacing: -1,
+        color: scheme.onSurface,
+      ),
     };
 
     final subtitleStyle = switch (style) {
       2 => ExpressType.headline.at(18, height: 1.35, weight: 700, color: muted),
       1 => MinimalType.body(18, height: 1.35, color: muted, weight: 500),
       _ => TextStyle(
-          fontFamily: AppTheme.classicFont,
-          fontWeight: FontWeight.w500,
-          fontSize: 18,
-          height: 1.3,
-          color: muted,
-        ),
+        fontFamily: AppTheme.classicFont,
+        fontWeight: FontWeight.w500,
+        fontSize: 18,
+        height: 1.3,
+        color: muted,
+      ),
     };
 
     final storyStyle = switch (style) {
       2 => ExpressType.body.at(
-          15,
-          height: 1.7,
-          color: scheme.onSurface.withValues(alpha: 0.85),
-        ),
+        15,
+        height: 1.7,
+        color: scheme.onSurface.withValues(alpha: 0.85),
+      ),
       1 => MinimalType.body(
-          15,
-          height: 1.7,
-          color: scheme.onSurface.withValues(alpha: 0.85),
-        ),
+        15,
+        height: 1.7,
+        color: scheme.onSurface.withValues(alpha: 0.85),
+      ),
       _ => TextStyle(
-          fontSize: 15,
-          height: 1.7,
-          color: scheme.onSurface.withValues(alpha: 0.85),
-        ),
+        fontSize: 15,
+        height: 1.7,
+        color: scheme.onSurface.withValues(alpha: 0.85),
+      ),
     };
 
     return Scaffold(
@@ -234,6 +234,10 @@ class _AboutPageState extends State<AboutPage> {
             ),
           ),
           const SizedBox(height: 14),
+          const Text(
+            'Level Up • Based on Streak by InlitX\nGPL-3.0-only',
+            textAlign: TextAlign.center,
+          ),
           Entrance(
             index: 7,
             delay: _base,
