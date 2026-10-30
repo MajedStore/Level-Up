@@ -2,14 +2,22 @@ import { createHash } from "node:crypto";
 import { initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { transition } from "level-up-api/src/domain.js";
-import { ApiError } from "level-up-api/src/errors.js";
-import { parse, syncSchema } from "level-up-api/src/schema.js";
+import { transition } from "./domain.js";
+import { ApiError } from "./errors.js";
+import { parse, syncSchema } from "./schema.js";
 
 initializeApp();
 
 const firestore = getFirestore();
 const maxPlannerDocumentBytes = 900_000;
+const privateCollections = [
+  "habits",
+  "categories",
+  "notes",
+  "focus",
+  "todos",
+  "todoTags",
+];
 
 const canonical = (value) =>
   Array.isArray(value)
@@ -65,6 +73,34 @@ function plannerError(error) {
     );
   }
   return new HttpsError("internal", "The planner update could not be confirmed.");
+}
+
+function privateError(error) {
+  if (error instanceof HttpsError) return error;
+  return new HttpsError("invalid-argument", "The private data update is invalid.");
+}
+
+function privateData(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpsError("invalid-argument", "Private data must be an object.");
+  }
+  const keys = Object.keys(value).sort();
+  if (
+    keys.length !== privateCollections.length ||
+    keys.some((key, index) => key !== [...privateCollections].sort()[index])
+  ) {
+    throw new HttpsError("invalid-argument", "Unexpected private data collection.");
+  }
+  for (const key of privateCollections) {
+    const collection = value[key];
+    if (!collection || typeof collection !== "object" || Array.isArray(collection)) {
+      throw new HttpsError("invalid-argument", "Private collections must be maps.");
+    }
+  }
+  if (encodedSize(value) > maxPlannerDocumentBytes) {
+    throw new HttpsError("resource-exhausted", "Private data is too large.");
+  }
+  return value;
 }
 
 export const syncPlannerState = onCall(
@@ -163,6 +199,96 @@ export const syncPlannerState = onCall(
       });
     } catch (error) {
       throw plannerError(error);
+    }
+  },
+);
+
+/// Account-owned habit, task, focus and note records. It deliberately excludes
+/// device settings and planner state; the latter is validated by syncPlannerState.
+export const syncPrivateData = onCall(
+  {
+    region: "us-central1",
+    enforceAppCheck: true,
+    timeoutSeconds: 60,
+    memory: "512MiB",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in to synchronize data.");
+    }
+    const input = request.data;
+    try {
+      if (!input || typeof input !== "object" || Array.isArray(input)) {
+        throw new HttpsError("invalid-argument", "Invalid private data request.");
+      }
+      if (
+        typeof input.mutationId !== "string" ||
+        input.mutationId.length < 8 ||
+        input.mutationId.length > 128 ||
+        !Number.isInteger(input.baseRevision) ||
+        input.baseRevision < 0
+      ) {
+        throw new HttpsError("invalid-argument", "Invalid private data revision.");
+      }
+      input.data = privateData(input.data);
+    } catch (error) {
+      throw privateError(error);
+    }
+
+    const ownerId = request.auth.uid;
+    const stateRef = firestore.doc(`users/${ownerId}/private/state`);
+    const mutationRef = stateRef.collection("mutations").doc(input.mutationId);
+    const hash = requestHash(input);
+    try {
+      return await firestore.runTransaction(async (transaction) => {
+        const [stateDocument, mutationDocument] = await Promise.all([
+          transaction.get(stateRef),
+          transaction.get(mutationRef),
+        ]);
+        const current = stateDocument.data() ?? { revision: 0, data: null };
+        if (!Number.isInteger(current.revision) || current.revision < 0) {
+          throw new HttpsError("failed-precondition", "Private data is invalid.");
+        }
+        if (mutationDocument.exists) {
+          const accepted = mutationDocument.data();
+          if (accepted.requestHash !== hash) {
+            throw new HttpsError("already-exists", "This mutation identifier was already used.");
+          }
+          if (accepted.revision !== current.revision) {
+            throw new HttpsError("aborted", "Private data changed.", {
+              revision: current.revision,
+              data: current.data,
+            });
+          }
+          return { revision: current.revision, data: current.data };
+        }
+        if (current.revision !== input.baseRevision) {
+          throw new HttpsError("aborted", "Private data changed.", {
+            revision: current.revision,
+            data: current.data,
+          });
+        }
+        const revision = current.revision + 1;
+        transaction.set(stateRef, {
+          schemaVersion: 1,
+          revision,
+          data: input.data,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        transaction.set(mutationRef, {
+          requestHash: hash,
+          revision,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        transaction.set(
+          firestore.doc(`users/${ownerId}`),
+          { schemaVersion: 1, lastPrivateSyncAt: FieldValue.serverTimestamp() },
+          { merge: true },
+        );
+        return { revision, data: input.data };
+      });
+    } catch (error) {
+      throw privateError(error);
     }
   },
 );

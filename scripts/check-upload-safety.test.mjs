@@ -74,7 +74,7 @@ test('forced environment copies and private keys block upload without known valu
 test('credential-bearing URLs are reported independently of local environment secrets', (t) => {
   const f = fixture(t);
   const password = randomBytes(16).toString('hex');
-  fs.writeFileSync(path.join(f.root, 'unexpected.txt'), ['mongodb+srv:', '//account:', password, '@cluster.example.net/database'].join(''));
+  fs.writeFileSync(path.join(f.root, 'unexpected.txt'), ['db+srv:', '//account:', password, '@cluster.example.net/database'].join(''));
   const result = f.audit();
   assert.equal(result.status, 1);
   assert.equal(result.stdout.includes(password), false);

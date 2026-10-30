@@ -2,7 +2,7 @@
 import 'package:google_sign_in/google_sign_in.dart';
 
 /// Keeps provider-specific failures out of the account UI and never exposes
-/// Google tokens beyond the immediate HTTPS exchange with the Level Up API.
+/// Google tokens beyond the immediate Firebase Authentication credential exchange.
 class GoogleSignInFailure implements Exception {
   const GoogleSignInFailure(this.code);
   final String code;

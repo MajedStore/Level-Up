@@ -39,6 +39,7 @@ import 'package:streak/services/planner_background.dart';
 import 'package:streak/services/planner_repository.dart';
 import 'package:streak/services/cloud_api.dart';
 import 'package:streak/services/firebase_cloud_api.dart';
+import 'package:streak/services/firebase_private_data_sync.dart';
 import 'package:streak/services/firebase_runtime.dart';
 import 'package:streak/services/cloud_session_store.dart';
 import 'package:streak/services/cloud_sync_controller.dart';
@@ -111,16 +112,19 @@ Future<void> _startup() async {
     final api = FirebaseCloudApi();
     _cloudApi = api;
     _cloudSessions = FirebaseCloudSessionStore(api);
+    _firebasePrivateSync = FirebasePrivateDataSync(
+      onApplied: _reloadAccountCaches,
+    )..start();
   } else {
-    // Keep existing Render/Mongo accounts usable until a Firebase project,
-    // callable validator and migration have all been deliberately verified.
-    _cloudApi = CloudHttpApi();
-    _cloudSessions = CloudSecureSessionStore();
+    _cloudApi = const FirebaseUnavailableCloudApi();
+    _cloudSessions = const FirebaseUnavailableSessionStore();
   }
   // Check secure identity before a folder import or any provider can expose
   // another account's previous native/Hive cache.
-  final savedSession = await _cloudSessions.read();
-  await _cloudCache.guardSession(savedSession?.ownerId);
+  if (firebase.ready) {
+    final savedSession = await _cloudSessions.read();
+    await _cloudCache.guardSession(savedSession?.ownerId);
+  }
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(
       ['Cairo'],
@@ -232,6 +236,8 @@ void _run() {
               googleIdTokenProvider: _googleIdTokens,
               exportDraft: _cloudCache.exportDraft,
               onApplied: _reloadAccountCaches,
+              onAccountChanged: (ownerId) =>
+                  _firebasePrivateSync?.activate(ownerId) ?? Future.value(),
             );
             _cloud = cloud;
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -273,6 +279,7 @@ const _appChannel = MethodChannel('streak/app_icon');
 late final CloudApi _cloudApi;
 late final CloudSessionStore _cloudSessions;
 final _googleIdTokens = GoogleSignInService();
+FirebasePrivateDataSync? _firebasePrivateSync;
 CloudSyncController? _cloud;
 final _cloudCache = NativeCloudPlannerCache(
   archives: CloudSecureArchiveStore(),

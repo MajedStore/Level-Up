@@ -5,9 +5,9 @@
 Level Up now includes a Firebase transport that is activated only after valid
 Firebase options are present. It provides Firebase email/password auth, Google
 credential exchange, password-reset links, Firebase session restoration, a
-Firestore state listener, and a callable sync path. Until then, the existing
-Express/Render/Mongo transport remains active so current accounts and queued
-planner data are not interrupted.
+Firestore state listener, and callable synchronization. Until configuration is
+present, the app remains local-only. It has no alternate HTTP account or data
+transport.
 
 The repository did not contain a Firebase project configuration, Android
 `google-services.json`, or generated `firebase_options.dart`. No Firebase
@@ -31,8 +31,16 @@ server-side transition/XP rules before committing.
 
 This keeps duplicate retries idempotent and prevents a modified client from
 minting XP. Firestore document size is deliberately capped below 1 MiB. A state
-that is too large remains queued locally and must stay on the existing backend
-or be migrated to a future chunked model; it is never silently truncated.
+that is too large remains queued locally for a future chunked model; it is
+never silently truncated.
+
+Habits, categories, notes, focus sessions, to-dos and tags use a second
+account-owned document at `users/{firebaseUid}/private/state`. It is read-only
+to the signed-in user and every mutation goes through the App-Check-protected
+`syncPrivateData` callable. It has an independent revision and idempotency
+record, so pending offline local work is retained instead of overwriting a
+newer device. Device settings, backup locations, credentials, local journals
+and planner XP state are deliberately excluded.
 
 ## Required Firebase Console work
 
@@ -59,21 +67,49 @@ npm install -g firebase-tools
 firebase login
 dart pub global activate flutterfire_cli
 flutterfire configure --platforms=android --out=lib/firebase_options.dart
-npm install
-npm run firebase:check
-firebase deploy --only firestore:rules,functions:syncPlannerState
+Push-Location functions
+npm ci
+npm run check
+Pop-Location
+firebase deploy --only firestore:rules,functions:syncPlannerState,functions:syncPrivateData
 ```
 
 `flutterfire configure` replaces the safe, unconfigured
 `lib/firebase_options.dart` starter with the generated configuration for the
 chosen project. Its identifiers are configuration, not server secrets. Do not
-put service-account JSON, OAuth client secrets, MongoDB credentials, Resend
-keys, or JWT signing keys into the Flutter app.
+put service-account JSON, OAuth client secrets, or any server signing key into
+the Flutter app.
 
-## Android build configuration
+## Google Sign-In configuration
 
-The Google identity package still needs the Web OAuth client ID to obtain an ID
-token. Build with that client ID; never use a client secret:
+`LEVEL_UP_GOOGLE_SERVER_CLIENT_ID` is read only by
+[`GoogleSignInService`](../lib/services/google_sign_in_service.dart) through a
+Flutter compile-time `String.fromEnvironment`. It is the **Web OAuth client
+ID**, not a secret. It belongs in the Flutter build/CI variable because the
+Google Sign-In Android plugin requests an ID token for that audience. It does
+not belong in Firebase Functions configuration or a Functions secret: Firebase
+Authentication verifies the credential when the app calls
+`signInWithCredential`.
+
+To configure it:
+
+1. In Firebase Console, open your project, then **Authentication -> Sign-in
+   method -> Google** and enable it. Save the project support email.
+2. Open **Project settings -> General -> Your apps -> Android app**. Add the
+   debug/release/Play signing SHA-1 fingerprints as applicable.
+3. Open the linked Google Cloud project’s **APIs & Services -> Credentials**.
+   Copy the OAuth 2.0 client of type **Web application**; its ID ends in
+   `.apps.googleusercontent.com`. Do not copy a client secret.
+4. Enter that ID as the GitHub repository variable
+   `LEVEL_UP_GOOGLE_SERVER_CLIENT_ID` (or the workflow dispatch input), or pass
+   it locally as the Dart define below.
+
+`flutterfire configure` selects the Firebase project, registers/updates the
+platform app, generates `lib/firebase_options.dart`, and downloads Android
+configuration as needed. It does not create a Web OAuth client secret, enable
+providers, add SHA fingerprints, or set this Dart build variable.
+
+Build with the Web client ID; never use a client secret:
 
 ```powershell
 flutter build apk --release `
@@ -86,17 +122,18 @@ debug token in Firebase Console, and never use that define for a release build.
 
 ## Existing-account migration
 
-MongoDB password hashes cannot be converted into Firebase passwords, and an
-existing Mongo user ID is not proof of a Firebase UID. Do not auto-create or
-merge Firebase accounts from old records. Keep Render/Mongo online during the
-transition. First verify a disposable Firebase account end to end, then choose
-an explicit migration per account: export/restore local data after Firebase
-sign-in, or run a separately reviewed admin-only migration that maps a verified
-old account to a verified Firebase UID and invokes the trusted transition.
+Credentials from a retired service cannot be converted into Firebase passwords,
+and a retired account ID is not proof of a Firebase UID. Do not auto-create or
+merge Firebase accounts from an unverified export. First verify a disposable
+Firebase account end to end, then perform an explicit, separately reviewed
+admin migration that maps a verified retired account to a verified Firebase UID
+and invokes the trusted callable paths. Preserve revision order and never write
+Firestore directly from an export script.
 
-Do not disable the existing backend until registration, Google sign-in,
-password reset, offline retry, multi-device updates, and data migration have
-been verified with real Firebase configuration.
+No import utility is retained in this repository because no completed,
+verified export mapping exists. Any future one-time utility must be kept outside
+the Flutter runtime, use Firebase Admin credentials from a secret manager, and
+be removed after the migration is audited.
 
 ## Verification completed locally
 
@@ -104,12 +141,8 @@ been verified with real Firebase configuration.
 - The changed Firebase/authentication/sync Dart files analyze cleanly. The full
   project analyzer has no errors or warnings; it reports eight pre-existing
   Flutter deprecation infos in unrelated widgets.
-- Focused account, Google, API and synchronization tests: **52 passed**.
-- Full Flutter suite: **747 passed, 3 expected skips**.
-- Existing backend validation: **54 passed**, static check passed, production
-  dependency audit found zero vulnerabilities.
-- The Firebase callable module passes `npm run firebase:check`, imports
-  successfully, and its production dependency audit found zero vulnerabilities.
+- Focused account, Google and synchronization tests passed before this cleanup.
+- The Firebase callable module is checked from `functions/` with `npm run check`.
 - A debug Android APK built successfully after the Firebase Auth dependency
   required Kotlin 2.4 support. Its SHA-256 is
   `7E9ACF5ED8C7EB976DB7C3DDE1B27024EC815EE869CBBA7B3621F4723852E030`.

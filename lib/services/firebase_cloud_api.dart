@@ -325,6 +325,48 @@ class FirebaseCloudApi
   }
 }
 
+/// Deliberately has no network fallback. Until FlutterFire configuration exists,
+/// the app stays local-first and asks for Firebase setup.
+class FirebaseUnavailableCloudApi implements CloudApi {
+  const FirebaseUnavailableCloudApi();
+
+  @override
+  bool get configured => false;
+
+  Never _unconfigured() => throw const CloudApiException('unconfigured');
+
+  @override
+  Future<CloudSession> register(String email, String password) async =>
+      _unconfigured();
+  @override
+  Future<CloudSession> login(String email, String password) async =>
+      _unconfigured();
+  @override
+  Future<CloudSession> google(String idToken) async => _unconfigured();
+  @override
+  Future<CloudSession> refresh(String refreshToken) async => _unconfigured();
+  @override
+  Future<void> logout(String refreshToken) async {}
+  @override
+  Future<CloudUser> linkGoogle(String accessToken, String idToken) async =>
+      _unconfigured();
+  @override
+  Future<void> requestPasswordReset(String email) async => _unconfigured();
+  @override
+  Future<void> completePasswordReset(
+    String email,
+    String token,
+    String password,
+  ) async => _unconfigured();
+  @override
+  Future<CloudSnapshot> getState(String accessToken) async => _unconfigured();
+  @override
+  Future<CloudSnapshot> sync(
+    String accessToken,
+    CloudMutation mutation,
+  ) async => _unconfigured();
+}
+
 /// Firebase Auth persists and refreshes its own credentials through the native
 /// SDK. Storing duplicate Firebase tokens in the app's planner cache would add
 /// risk without improving restoration, so this store keeps no token material.
@@ -341,4 +383,14 @@ class FirebaseCloudSessionStore implements CloudSessionStore {
 
   @override
   Future<void> clear() => _api.logout('firebase-sdk');
+}
+
+class FirebaseUnavailableSessionStore implements CloudSessionStore {
+  const FirebaseUnavailableSessionStore();
+  @override
+  Future<CloudSession?> read() async => null;
+  @override
+  Future<void> write(CloudSession session) async {}
+  @override
+  Future<void> clear() async {}
 }

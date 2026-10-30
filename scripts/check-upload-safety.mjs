@@ -31,7 +31,7 @@ try {
   const root = git(['rev-parse', '--show-toplevel']).toString('utf8').trim();
   process.chdir(root);
   const knownSecrets = new Map();
-  const sensitiveKey = /(?:^|_)(?:SECRET|PASSWORD|PASSWD|PRIVATE_KEY|ACCESS_TOKEN|REFRESH_TOKEN|API_KEY)$|^MONGODB_URI$/i;
+  const sensitiveKey = /(?:^|_)(?:SECRET|PASSWORD|PASSWD|PRIVATE_KEY|ACCESS_TOKEN|REFRESH_TOKEN|API_KEY|URI)$/i;
   let privateEnvironmentFiles = 0;
   const ignoreDirectories = new Set(['.git', 'node_modules', 'build', '.dart_tool', '.gradle', '.pub-cache', '.cache']);
   function readLocalEnvironment(directory = '.') {
@@ -50,7 +50,7 @@ try {
           if (/^(['"]).*\1$/.test(value)) value = value.slice(1, -1);
           else value = value.replace(/\s+#.*$/, '').trim();
           if (value.length >= 8 && !placeholder(value)) knownSecrets.set(value, match[1]);
-          if (/^mongodb(?:\+srv)?:\/\//.test(value)) {
+          if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) {
             try {
               const url = new URL(value);
               const password = decodeURIComponent(url.password);
@@ -89,8 +89,8 @@ try {
       ['github-token', /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})\b/g],
       ['aws-access-key', /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g],
       ['jwt-token', /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{15,}\b/g],
-      ['credential-url', /(?:mongodb(?:\+srv)?|https?):\/\/([^\s/"'`<>:@]+):([^\s/"'`<>@]+)@[^\s"'`<>]+/g],
-      ['secret-assignment', /^\s*(?:export\s+)?(?:JWT_SECRET|MONGODB_PASSWORD|API_KEY|PRIVATE_KEY)\s*=\s*["']?([^\r\n"']+)/gm],
+      ['credential-url', /[a-z][a-z0-9+.-]*:\/\/([^\s/"'`<>:@]+):([^\s/"'`<>@]+)@[^\s"'`<>]+/gi],
+      ['secret-assignment', /^\s*(?:export\s+)?(?:[A-Z0-9_]*(?:SECRET|PASSWORD|PASSWD|PRIVATE_KEY|ACCESS_TOKEN|REFRESH_TOKEN|API_KEY))\s*=\s*["']?([^\r\n"']+)/gm],
     ];
     for (const [category, regex] of checks) {
       for (const match of text.matchAll(regex)) {

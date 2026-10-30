@@ -26,5 +26,17 @@ service cloud.firestore {
     match /users/{userId}/planner/state/mutations/{mutationId} {
       allow read, write: if false;
     }
+
+    // Account-owned habits, to-dos, focus sessions, notes, tags and categories
+    // are delivered through a callable transaction. Reads support the offline
+    // Firestore listener; direct client mutation is never allowed.
+    match /users/{userId}/private/state {
+      allow read: if signedInAs(userId);
+      allow create, update, delete: if false;
+    }
+
+    match /users/{userId}/private/state/mutations/{mutationId} {
+      allow read, write: if false;
+    }
   }
 }

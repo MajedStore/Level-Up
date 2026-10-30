@@ -45,6 +45,7 @@ class LocalStore {
   static bool get isWriting => _writing > 0;
 
   static void Function()? onChanged;
+  static final Set<void Function()> _changeListeners = {};
   static Map<String, int>? _changes;
   static Map<String, int>? _deleted;
   static Map<String, int>? _cleared;
@@ -113,7 +114,7 @@ class LocalStore {
         await _settings.put(_deletedKey, Map<String, int>.of(deleted));
       }
     }
-    onChanged?.call();
+    _notifyChanged();
   }
 
   static Future<void> _removed(Iterable<String> ids) async {
@@ -127,7 +128,22 @@ class LocalStore {
       await _settings.put(_deletedKey, Map<String, int>.of(deleted));
       await _settings.put(_changesKey, Map<String, int>.of(changes));
     }
+    _notifyChanged();
+  }
+
+  /// Adds a local-only observer without taking ownership of the legacy
+  /// [onChanged] callback used by folder sync.
+  static void addChangeListener(void Function() listener) =>
+      _changeListeners.add(listener);
+
+  static void removeChangeListener(void Function() listener) =>
+      _changeListeners.remove(listener);
+
+  static void _notifyChanged() {
     onChanged?.call();
+    for (final listener in List<void Function()>.from(_changeListeners)) {
+      listener();
+    }
   }
 
   static Future<T> quietly<T>(Future<T> Function() action) =>
@@ -443,10 +459,15 @@ class LocalStore {
     return result;
   }
 
-  static Future<void> writeCategory(Category category) =>
-      _categories.put(category.id, category.toJson());
+  static Future<void> writeCategory(Category category) async {
+    await _categories.put(category.id, category.toJson());
+    await _touch([category.id]);
+  }
 
-  static Future<void> removeCategory(String id) => _categories.delete(id);
+  static Future<void> removeCategory(String id) async {
+    await _categories.delete(id);
+    await _removed([id]);
+  }
 
   static String categoryKey(String name) => name.trim().toLowerCase();
 
@@ -504,6 +525,44 @@ class LocalStore {
     'todos': _todos.toMap(),
     'todoTags': _todoTags.toMap(),
   };
+
+  /// The non-planner, account-owned records eligible for Firebase sync.
+  ///
+  /// Device preferences, backup credentials, local change journals and the
+  /// planner state intentionally stay out of this payload. Planner/XP data is
+  /// synchronized by the separately validated callable transition path.
+  static Map<String, dynamic> firebasePrivateSnapshot() => {
+    'habits': _habits.toMap(),
+    'categories': _categories.toMap(),
+    'notes': _notes.toMap(),
+    'focus': _focus.toMap(),
+    'todos': _todos.toMap(),
+    'todoTags': _todoTags.toMap(),
+  };
+
+  /// Replaces only account-owned, non-planner records received from the
+  /// Firebase callable. This never imports device settings or planner state.
+  static Future<void> replaceFirebasePrivateData(
+    Map<String, dynamic> snapshot,
+  ) async {
+    final boxes = {
+      'habits': _habits,
+      'categories': _categories,
+      'notes': _notes,
+      'focus': _focus,
+      'todos': _todos,
+      'todoTags': _todoTags,
+    };
+    await quietly(() async {
+      for (final entry in boxes.entries) {
+        await entry.value.clear();
+        final values = snapshot[entry.key];
+        if (values is Map) await entry.value.putAll(values);
+      }
+    });
+    _habitsStamp = _stampOf(_habits);
+    _todosStamp = _stampOf(_todos);
+  }
 
   /// Used only while the planner account-switch lease is held. Replaces all
   /// private tool caches as well as planner settings, preventing cross-account

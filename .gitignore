@@ -32,6 +32,7 @@ migrate_working_dir/
 .firebase/
 functions/node_modules/
 /node_modules/
+/backend/
 
 # Symbolication related
 app.*.symbols

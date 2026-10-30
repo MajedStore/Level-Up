@@ -102,43 +102,6 @@ abstract interface class CloudSessionStore {
   Future<void> clear();
 }
 
-/// Tokens never enter Hive, backups or planner projection. The whole session is
-/// one encrypted value so refresh-token rotation does not tear across keys.
-class CloudSecureSessionStore implements CloudSessionStore {
-  CloudSecureSessionStore({FlutterSecureStorage? storage})
-    : _storage =
-          storage ??
-          const FlutterSecureStorage(
-            aOptions: AndroidOptions(resetOnError: false),
-          );
-  final FlutterSecureStorage _storage;
-  static const _key = 'levelup.cloud.session.v1';
-  @override
-  Future<CloudSession?> read() async {
-    final value = await _storage.read(key: _key);
-    if (value == null) return null;
-    try {
-      final decoded = jsonDecode(value);
-      if (decoded is! Map) throw const FormatException('Invalid session.');
-      return CloudSession.fromMap(cloudMap(decoded));
-    } on FormatException {
-      // Discard only the corrupt credential value. Owner drafts live under
-      // separate keys and will be isolated by guardSession before UI startup.
-      await clear();
-      return null;
-    } on TypeError {
-      await clear();
-      return null;
-    }
-  }
-
-  @override
-  Future<void> write(CloudSession session) =>
-      _storage.write(key: _key, value: jsonEncode(session.toMap()));
-  @override
-  Future<void> clear() => _storage.delete(key: _key);
-}
-
 /// Private account drafts are encrypted at rest and never listed across owners.
 class CloudSecureArchiveStore implements CloudArchiveStore {
   CloudSecureArchiveStore({FlutterSecureStorage? storage})

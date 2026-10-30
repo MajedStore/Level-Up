@@ -1,0 +1,5 @@
+# Firebase Functions source is isolated in this directory. Never deploy local
+# dependencies, editor files, environment files, or build products.
+node_modules/
+.env*
+.git/

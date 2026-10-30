@@ -1,16 +1,12 @@
 # Level Up
 
-For GitHub upload, Render hosting, Atlas network configuration and the final
-cloud-connected Android build, follow [the deployment handoff](docs/DEPLOYMENT.md).
-Private backend credentials stay in local `.env`/Render environment settings.
+The current cloud architecture is Firebase Authentication, Cloud Firestore and
+trusted Firebase callable functions. Follow the
+[Firebase migration guide](docs/FIREBASE_MIGRATION.md) for Android setup,
+security rules, App Check and deployment.
 
-For the current sign-in repair, Google OAuth, password recovery and sync retry
-configuration, see [authentication setup](docs/AUTH_CONFIGURATION.md) and
-[implementation verification](docs/AUTH_OVERHAUL.md).
-
-For the staged Firebase Authentication/Firestore migration, trusted callable
-sync, restrictive Firestore rules and required Console setup, see the
-[Firebase migration guide](docs/FIREBASE_MIGRATION.md).
+For Firebase email/password sign-in, Google OAuth, password reset and secure
+sync configuration, use the [Firebase migration guide](docs/FIREBASE_MIGRATION.md).
 
 An Android planner with offline use and optional account sync, built by extending Streak. Routines are separate from
 challenge commitments. Challenge completion earns XP; routine completion does not.
@@ -26,9 +22,6 @@ animate back to the current time. The app includes recurring and
 overnight activities; occurrence/series edits; ordered steps and amount targets;
 immutable challenge history; an XP ledger; and Android reminders.
 
-See [the account, MongoDB and skip-penalty report](docs/LEVEL_UP_CLOUD.md) and
-[backend setup guide](backend/README.md) for version 3.0, configuration and verification.
-Atlas credentials and a production HTTPS API must be configured before cloud sync is available.
 The [package and navigation report](docs/LEVEL_UP_PACKAGES.md) covers the 2.9
 builder, migration, UI and verification. The [timeline and typography report](docs/LEVEL_UP_TIMELINE.md)
 records 2.8.0, and the [2.7.0 refactoring report](docs/LEVEL_UP_REFACTOR.md) covers core architecture,

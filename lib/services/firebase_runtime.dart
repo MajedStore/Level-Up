@@ -5,9 +5,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:streak/firebase_options.dart';
 
-/// The app must remain fully usable without Firebase configuration. This
-/// boundary makes configuration failure explicit and keeps the existing cloud
-/// transport available during a staged migration.
+/// The app remains usable without Firebase configuration as a local-only app.
+/// This boundary makes a missing project explicit and prevents an accidental
+/// fallback to the retired HTTP cloud transport.
 class FirebaseRuntime {
   const FirebaseRuntime._({required this.ready, this.errorCode});
 

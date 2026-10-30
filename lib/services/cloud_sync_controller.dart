@@ -30,6 +30,7 @@ class CloudSyncController extends ChangeNotifier {
     required this.sessionStore,
     this.googleIdTokenProvider,
     this.onApplied,
+    this.onAccountChanged,
     this.exportDraft,
     this.retryDelays = const [
       Duration(seconds: 2),
@@ -45,6 +46,10 @@ class CloudSyncController extends ChangeNotifier {
   final CloudSessionStore sessionStore;
   final GoogleIdTokenProvider? googleIdTokenProvider;
   final Future<void> Function()? onApplied;
+
+  /// Runs only after the native planner cache has been isolated for this UID.
+  /// Other Firebase-owned data can safely activate from this boundary.
+  final Future<void> Function(String? ownerId)? onAccountChanged;
   final Future<String> Function()? exportDraft;
 
   /// Foreground recovery is bounded. Restarting the app or an explicit retry
@@ -116,6 +121,14 @@ class CloudSyncController extends ChangeNotifier {
   Future<void> initialize({bool sync = true}) =>
       _exclusive('initialize', () async {
         try {
+          if (!configured) {
+            // Do not clear an existing local cache merely because a build was
+            // produced before FlutterFire configuration. It remains available
+            // for explicit Firebase migration/export.
+            _cache = await cache.read();
+            _set(CloudSyncStatus.unconfigured);
+            return;
+          }
           _session = await sessionStore.read();
           _cache = await cache.read();
           if (_session == null) {
@@ -125,16 +138,15 @@ class CloudSyncController extends ChangeNotifier {
               _cache = await cache.read();
             }
             _set(
-              configured
-                  ? CloudSyncStatus.signedOut
-                  : CloudSyncStatus.unconfigured,
+              CloudSyncStatus.signedOut,
             );
-          } else if (sync && configured) {
+          } else if (sync) {
             await _sync();
           } else {
-            _set(configured ? _cacheStatus() : CloudSyncStatus.unconfigured);
+            _set(_cacheStatus());
           }
           _startRemoteUpdates();
+          await onAccountChanged?.call(_session?.ownerId);
         } catch (error) {
           _fail(error);
         }
@@ -173,6 +185,7 @@ class CloudSyncController extends ChangeNotifier {
     _session = session;
     await onApplied?.call();
     _cache = await cache.read();
+    await onAccountChanged?.call(session.ownerId);
     _set(_cacheStatus());
     if (_cache.pending.isNotEmpty && _cache.errorCode == null) {
       await _sync();
@@ -311,6 +324,7 @@ class CloudSyncController extends ChangeNotifier {
     await sessionStore.clear();
     _session = null;
     await onApplied?.call();
+    await onAccountChanged?.call(null);
     _cache = await cache.read();
   }
 
@@ -478,6 +492,7 @@ class CloudSyncController extends ChangeNotifier {
         await sessionStore.clear();
         _session = null;
         await onApplied?.call();
+        await onAccountChanged?.call(null);
         _cache = await cache.read();
         _set(
           configured ? CloudSyncStatus.signedOut : CloudSyncStatus.unconfigured,

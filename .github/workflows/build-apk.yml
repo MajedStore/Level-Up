@@ -9,12 +9,8 @@ on:
         description: 'Release tag / version, e.g. v1.1.0'
         required: true
         type: string
-      api_base_url:
-        description: 'Real production HTTPS API origin. Empty uses repository variable LEVEL_UP_API_BASE_URL.'
-        required: false
-        type: string
       google_server_client_id:
-        description: 'Web OAuth client ID. Empty uses repository variable LEVEL_UP_GOOGLE_SERVER_CLIENT_ID.'
+        description: 'Firebase Google Web OAuth client ID. Empty uses repository variable LEVEL_UP_GOOGLE_SERVER_CLIENT_ID.'
         required: false
         type: string
 
@@ -105,7 +101,6 @@ jobs:
     # Cloud-configured APKs are not the historical upstream F-Droid artifact.
     env:
       PUB_CACHE: ${{ github.workspace }}/.pub-cache
-      LEVEL_UP_API_BASE_URL: ${{ inputs.api_base_url || vars.LEVEL_UP_API_BASE_URL }}
       LEVEL_UP_GOOGLE_SERVER_CLIENT_ID: ${{ inputs.google_server_client_id || vars.LEVEL_UP_GOOGLE_SERVER_CLIENT_ID }}
 
     steps:
@@ -119,11 +114,10 @@ jobs:
         with:
           node-version: '24.15.0'
 
-      - name: Validate production URL, health and release tag
+      - name: Validate Firebase Google configuration and release tag
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          node scripts/validate_api_origin.mjs "$LEVEL_UP_API_BASE_URL" --auth-readiness
           node -e 'if (!/^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-.][A-Za-z0-9.-]+)?$/.test(process.env.RELEASE_TAG || "")) { console.error("Use a version tag such as v3.0.0."); process.exit(1); }'
           node -e 'const value = process.env.LEVEL_UP_GOOGLE_SERVER_CLIENT_ID || ""; if (value && !/^[A-Za-z0-9][A-Za-z0-9._-]*\.apps\.googleusercontent\.com$/.test(value)) { console.error("Configure a Web OAuth client ID ending in .apps.googleusercontent.com."); process.exit(1); }'
 
@@ -172,7 +166,7 @@ jobs:
       # --split-debug-info moves the path-laden debug symbols out of libapp.so so it
       # builds deterministically. F-Droid uses the same flag.
       - name: Build split APKs
-        run: flutter build apk --release --split-per-abi --split-debug-info=build/symbols --dart-define=LEVEL_UP_API_BASE_URL="$LEVEL_UP_API_BASE_URL" --dart-define=LEVEL_UP_GOOGLE_SERVER_CLIENT_ID="$LEVEL_UP_GOOGLE_SERVER_CLIENT_ID"
+        run: flutter build apk --release --split-per-abi --split-debug-info=build/symbols --dart-define=LEVEL_UP_GOOGLE_SERVER_CLIENT_ID="$LEVEL_UP_GOOGLE_SERVER_CLIENT_ID"
 
       - name: Rename APKs
         run: |
