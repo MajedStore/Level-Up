@@ -8,6 +8,10 @@ For the current sign-in repair, Google OAuth, password recovery and sync retry
 configuration, see [authentication setup](docs/AUTH_CONFIGURATION.md) and
 [implementation verification](docs/AUTH_OVERHAUL.md).
 
+For the staged Firebase Authentication/Firestore migration, trusted callable
+sync, restrictive Firestore rules and required Console setup, see the
+[Firebase migration guide](docs/FIREBASE_MIGRATION.md).
+
 An Android planner with offline use and optional account sync, built by extending Streak. Routines are separate from
 challenge commitments. Challenge completion earns XP; routine completion does not.
 Create reusable packages with custom categories and nested task groups, select

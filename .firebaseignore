@@ -1,0 +1,13 @@
+# Upload only the callable and its deliberately shared, server-side validation
+# package. This prevents Flutter assets, local build outputs, environment files,
+# editor settings and development dependencies from entering the Functions
+# deployment bundle.
+**
+!package.json
+!package-lock.json
+!functions/
+!functions/index.js
+!backend/
+!backend/package.json
+!backend/src/
+!backend/src/**

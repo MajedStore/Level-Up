@@ -59,6 +59,7 @@ class CloudSyncController extends ChangeNotifier {
   String? _operationKey;
   final _queuedOperations = <String, Future<void>>{};
   Timer? _retryTimer;
+  StreamSubscription<CloudSnapshot>? _remoteUpdates;
   int _retryAttempts = 0;
   bool _disposed = false;
 
@@ -68,6 +69,9 @@ class CloudSyncController extends ChangeNotifier {
   CloudSyncStatus get status => _status;
   String? get errorCode => _errorCode;
   bool get configured => api.configured;
+  bool get passwordResetCompletesInEmail =>
+      api is CloudPasswordResetEmailFlow &&
+      (api as CloudPasswordResetEmailFlow).passwordResetCompletesInEmail;
   bool get busy => _operation != null;
   int get pendingCount => _cache.pending.length;
   bool get canRestore =>
@@ -130,6 +134,7 @@ class CloudSyncController extends ChangeNotifier {
           } else {
             _set(configured ? _cacheStatus() : CloudSyncStatus.unconfigured);
           }
+          _startRemoteUpdates();
         } catch (error) {
           _fail(error);
         }
@@ -171,6 +176,51 @@ class CloudSyncController extends ChangeNotifier {
     _set(_cacheStatus());
     if (_cache.pending.isNotEmpty && _cache.errorCode == null) {
       await _sync();
+    }
+    _startRemoteUpdates();
+  }
+
+  void _startRemoteUpdates() {
+    _remoteUpdates?.cancel();
+    _remoteUpdates = null;
+    final session = _session;
+    final CloudStateWatcher? watcher = api is CloudStateWatcher
+        ? api as CloudStateWatcher
+        : null;
+    if (_disposed || session == null || watcher == null) return;
+    _remoteUpdates = watcher
+        .watchState(session.accessToken)
+        .listen(
+          (remote) => unawaited(_applyRemoteSnapshot(session.ownerId, remote)),
+          onError: (Object error, StackTrace trace) {
+            if (!_disposed) _fail(error);
+          },
+        );
+  }
+
+  Future<void> _applyRemoteSnapshot(
+    String ownerId,
+    CloudSnapshot remote,
+  ) async {
+    if (remote.state == null) return;
+    try {
+      await _exclusive('remote-state', () async {
+        // Read under the native cache gate immediately before applying. A
+        // planner write may have been captured after the last foreground sync
+        // but before this listener callback ran.
+        _cache = await cache.read();
+        if (_session?.ownerId != ownerId ||
+            _cache.pending.isNotEmpty ||
+            remote.revision <= _cache.revision) {
+          return;
+        }
+        await cache.activate(ownerId, remote);
+        await onApplied?.call();
+        _cache = await cache.read();
+        _set(_cacheStatus());
+      });
+    } catch (error) {
+      _fail(error);
     }
   }
 
@@ -255,6 +305,8 @@ class CloudSyncController extends ChangeNotifier {
   /// so a later account cannot see it and unsynchronized work is not deleted.
   Future<void> _invalidateExpiredSession() async {
     _cancelRetry(resetAttempts: true);
+    await _remoteUpdates?.cancel();
+    _remoteUpdates = null;
     await cache.signOut();
     await sessionStore.clear();
     _session = null;
@@ -414,6 +466,9 @@ class CloudSyncController extends ChangeNotifier {
 
   Future<void> signOut() {
     _cancelRetry(resetAttempts: true);
+    final remoteUpdates = _remoteUpdates;
+    _remoteUpdates = null;
+    unawaited(remoteUpdates?.cancel() ?? Future<void>.value());
     return _exclusive('sign-out', () async {
       _cancelRetry(resetAttempts: true);
       final previous = _session;
@@ -474,6 +529,8 @@ class CloudSyncController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _cancelRetry();
+    unawaited(_remoteUpdates?.cancel() ?? Future<void>.value());
+    _remoteUpdates = null;
     super.dispose();
   }
 }

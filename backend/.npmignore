@@ -1,0 +1,7 @@
+# The Firebase callable consumes only the trusted domain/schema modules from
+# this local package. Keep development tests, docs and all environment samples
+# out of the deployable dependency archive.
+*
+!package.json
+!src/
+!src/**

@@ -132,6 +132,7 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
     if (!_form.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     if (_resetSent) {
+      if (controller.passwordResetCompletesInEmail) return;
       await controller.completePasswordReset(
         _email.text,
         _resetCode.text,
@@ -237,7 +238,10 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: Text(
-                    _cloudError(context, controller.errorCode!),
+                    controller.errorCode == 'password_reset_sent' &&
+                            controller.passwordResetCompletesInEmail
+                        ? context.plannerText('cloudResetLinkSent')
+                        : _cloudError(context, controller.errorCode!),
                     style: TextStyle(
                       color: switch (controller.errorCode) {
                         'password_reset_sent' || 'password_reset_complete' =>
@@ -251,7 +255,11 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                 const SizedBox(height: 24),
                 Text(
                   context.plannerText(
-                    _resetSent ? 'cloudResetCodeInfo' : 'cloudResetRequestInfo',
+                    _resetSent
+                        ? controller.passwordResetCompletesInEmail
+                              ? 'cloudResetLinkInfo'
+                              : 'cloudResetCodeInfo'
+                        : 'cloudResetRequestInfo',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -279,7 +287,8 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                             ? context.plannerText('cloudInvalidEmail')
                             : null,
                       ),
-                      if (_resetSent) ...[
+                      if (_resetSent &&
+                          !controller.passwordResetCompletesInEmail) ...[
                         const SizedBox(height: 16),
                         TextFormField(
                           key: const ValueKey('cloud-reset-code'),
@@ -359,18 +368,36 @@ class _CloudAccountPageState extends State<CloudAccountPage> {
                         ),
                       ],
                       const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          key: const ValueKey('cloud-reset-submit'),
-                          onPressed: controller.busy
-                              ? null
-                              : () => _reset(controller),
-                          child: Text(
-                            context.plannerText('cloudResetPassword'),
+                      if (_resetSent &&
+                          controller.passwordResetCompletesInEmail)
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            key: const ValueKey('cloud-reset-return'),
+                            onPressed: controller.busy
+                                ? null
+                                : () => setState(() {
+                                    _resetMode = false;
+                                    _resetSent = false;
+                                  }),
+                            child: Text(
+                              context.plannerText('cloudReturnToSignIn'),
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            key: const ValueKey('cloud-reset-submit'),
+                            onPressed: controller.busy
+                                ? null
+                                : () => _reset(controller),
+                            child: Text(
+                              context.plannerText('cloudResetPassword'),
+                            ),
                           ),
                         ),
-                      ),
                       TextButton(
                         onPressed: controller.busy
                             ? null

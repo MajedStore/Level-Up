@@ -34,6 +34,19 @@ abstract interface class CloudApi {
   Future<CloudSnapshot> sync(String accessToken, CloudMutation mutation);
 }
 
+/// Optional capability for providers whose password-reset flow is completed
+/// through an out-of-app email link rather than an in-app recovery code.
+abstract interface class CloudPasswordResetEmailFlow {
+  bool get passwordResetCompletesInEmail;
+}
+
+/// Optional real-time transport capability. The controller deliberately uses
+/// this only when there is no local mutation waiting, so a remote snapshot can
+/// never silently overwrite an optimistic local change.
+abstract interface class CloudStateWatcher {
+  Stream<CloudSnapshot> watchState(String accessToken);
+}
+
 class CloudHttpApi implements CloudApi {
   CloudHttpApi({
     String? baseUrl,

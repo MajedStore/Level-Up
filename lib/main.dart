@@ -38,6 +38,8 @@ import 'package:streak/services/planner_sync.dart';
 import 'package:streak/services/planner_background.dart';
 import 'package:streak/services/planner_repository.dart';
 import 'package:streak/services/cloud_api.dart';
+import 'package:streak/services/firebase_cloud_api.dart';
+import 'package:streak/services/firebase_runtime.dart';
 import 'package:streak/services/cloud_session_store.dart';
 import 'package:streak/services/cloud_sync_controller.dart';
 import 'package:streak/services/google_sign_in_service.dart';
@@ -104,6 +106,17 @@ Future<void> _startup() async {
 
   await initializeDateFormatting();
   await LocalStore.init();
+  final firebase = await FirebaseRuntime.initialize();
+  if (firebase.ready) {
+    final api = FirebaseCloudApi();
+    _cloudApi = api;
+    _cloudSessions = FirebaseCloudSessionStore(api);
+  } else {
+    // Keep existing Render/Mongo accounts usable until a Firebase project,
+    // callable validator and migration have all been deliberately verified.
+    _cloudApi = CloudHttpApi();
+    _cloudSessions = CloudSecureSessionStore();
+  }
   // Check secure identity before a folder import or any provider can expose
   // another account's previous native/Hive cache.
   final savedSession = await _cloudSessions.read();
@@ -213,7 +226,7 @@ void _run() {
           lazy: false,
           create: (context) {
             final cloud = CloudSyncController(
-              api: CloudHttpApi(),
+              api: _cloudApi,
               cache: _cloudCache,
               sessionStore: _cloudSessions,
               googleIdTokenProvider: _googleIdTokens,
@@ -257,7 +270,8 @@ void _run() {
 
 const _appChannel = MethodChannel('streak/app_icon');
 
-final _cloudSessions = CloudSecureSessionStore();
+late final CloudApi _cloudApi;
+late final CloudSessionStore _cloudSessions;
 final _googleIdTokens = GoogleSignInService();
 CloudSyncController? _cloud;
 final _cloudCache = NativeCloudPlannerCache(

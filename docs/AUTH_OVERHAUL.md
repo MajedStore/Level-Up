@@ -66,3 +66,14 @@ app.
 
 No production account was created as part of implementation or safe deployment
 verification.
+
+## Firebase migration phase
+
+The next phase adds an opt-in Firebase implementation without retiring the
+working Express/Render/Mongo path. Firebase Auth owns email/password, Google
+and password-link authentication once a real Firebase project has been
+configured. Firestore provides the per-user real-time read model, while the
+trusted callable preserves the existing server-side planner and XP transition
+rules. See [the Firebase migration guide](FIREBASE_MIGRATION.md) for the
+required Console setup, rules, deployment commands and safe existing-account
+migration boundary.

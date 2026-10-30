@@ -236,6 +236,15 @@ class FakeCloudApi implements CloudApi {
   }
 }
 
+class WatchingCloudApi extends FakeCloudApi implements CloudStateWatcher {
+  final updates = StreamController<CloudSnapshot>.broadcast();
+
+  @override
+  Stream<CloudSnapshot> watchState(String accessToken) => updates.stream;
+
+  Future<void> dispose() => updates.close();
+}
+
 class FakeGoogleIdTokens implements GoogleIdTokenProvider {
   @override
   bool configured = true;
@@ -606,6 +615,44 @@ void main() {
     expect(controller.status, CloudSyncStatus.unconfigured);
     expect(api.events, isEmpty);
   });
+  test(
+    'a newer Firebase listener snapshot applies only with no queued local write',
+    () async {
+      controller.dispose();
+      final watching = WatchingCloudApi();
+      api = watching;
+      controller = CloudSyncController(
+        api: api,
+        cache: cache,
+        sessionStore: sessions,
+        clock: () => cloudNow,
+      );
+      sessions.value = cloudSession();
+      cache.value = const CloudCache(ownerId: 'a', revision: 4);
+      await controller.initialize(sync: false);
+      watching.updates.add(
+        CloudSnapshot(revision: 5, state: {'from': 'firestore'}),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(cache.value.revision, 5);
+      expect(cache.value.acknowledgedState, {'from': 'firestore'});
+
+      cache.value = CloudCache(
+        ownerId: 'a',
+        revision: 5,
+        pending: [cloudMutation('local-first', 5)],
+      );
+      watching.updates.add(
+        CloudSnapshot(revision: 6, state: {'from': 'other'}),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(cache.value.revision, 5);
+      expect(cache.value.pending.single.mutationId, 'local-first');
+      await watching.dispose();
+    },
+  );
   test(
     'activation failure rolls back public and secure identity before retry',
     () async {

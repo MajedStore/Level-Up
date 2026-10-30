@@ -1,0 +1,11 @@
+{
+  "functions": [
+    {
+      "source": ".",
+      "codebase": "levelup"
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

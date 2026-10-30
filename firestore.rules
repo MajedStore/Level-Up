@@ -1,0 +1,30 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedInAs(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // A profile is written only by trusted server code. It may contain only
+    // account metadata, never an authorization substitute.
+    match /users/{userId} {
+      allow read: if signedInAs(userId);
+      allow create, update, delete: if false;
+    }
+
+    // The app can observe its own canonical state in real time. Writes are
+    // callable-only: the Admin SDK bypasses these rules after it verifies the
+    // authenticated UID, App Check token, idempotency key and XP transition.
+    match /users/{userId}/planner/state {
+      allow read: if signedInAs(userId);
+      allow create, update, delete: if false;
+    }
+
+    // Idempotency records are implementation details. Neither reads nor
+    // writes are exposed to app clients.
+    match /users/{userId}/planner/state/mutations/{mutationId} {
+      allow read, write: if false;
+    }
+  }
+}

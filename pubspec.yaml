@@ -44,6 +44,11 @@ dependencies:
   flip_board: ^1.0.0
   video_player_win: ^3.2.2
   google_sign_in: 7.2.0
+  firebase_core: ^5.1.0
+  firebase_auth: ^7.0.1
+  cloud_firestore: ^7.1.0
+  cloud_functions: ^7.0.1
+  firebase_app_check: ^0.5.1
 
 dev_dependencies:
   flutter_test:

@@ -29,6 +29,9 @@ migrate_working_dir/
 /build/
 /android/build/
 /coverage/
+.firebase/
+functions/node_modules/
+/node_modules/
 
 # Symbolication related
 app.*.symbols
