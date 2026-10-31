@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="schedule_widget_label">جدول Level Up</string>
+    <string name="schedule_widget_description">جدول اليوم في لمحة</string>
+    <string name="schedule_widget_open">افتح Level Up لتحميل جدولك</string>
+    <string name="challenges_widget_label">تحديات Level Up</string>
+    <string name="challenges_widget_description">تحدي اليوم ومهامه</string>
+</resources>

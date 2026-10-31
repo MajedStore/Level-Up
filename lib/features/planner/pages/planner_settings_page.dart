@@ -1,11 +1,19 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:streak/app/theme/app_tokens.dart';
+import 'package:streak/core/i18n/l10n.dart';
+import 'package:streak/core/utils/app_dirs.dart';
 import 'package:streak/features/planner/l10n/planner_l10n.dart';
+import 'package:streak/features/planner/pages/planner_backup.dart';
 import 'package:streak/features/planner/state/planner_controller.dart';
 import 'package:streak/features/planner/widgets/planner_widgets.dart';
 import 'package:streak/features/planner/widgets/planner_reminder_editor.dart';
-import 'package:streak/features/settings/pages/settings_page.dart';
+import 'package:streak/features/settings/settings_actions.dart';
 import 'package:streak/features/settings/state/settings_controller.dart';
+import 'package:streak/features/settings/widgets/minimal_settings_widgets.dart';
+import 'package:streak/features/settings/widgets/settings_sheets.dart';
 import 'package:streak/services/notification_service.dart';
 import 'package:streak/services/planner_sync.dart';
 
@@ -111,6 +119,97 @@ class _PlannerSettingsPageState extends State<PlannerSettingsPage> {
               }
             },
           ),
+          PlannerSection(context.l10n.appearance),
+          PlannerGroup(
+            children: [
+              // Label and selector form one setting, so one group row.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.contrast_rounded,
+                          color: context.tokens.muted,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            context.l10n.theme,
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SegmentedButton<ThemeMode>(
+                      key: const ValueKey('settings-theme-mode'),
+                      showSelectedIcon: false,
+                      segments: [
+                        ButtonSegment(
+                          value: ThemeMode.system,
+                          label: Text(context.l10n.system),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.light,
+                          label: Text(context.l10n.light),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.dark,
+                          label: Text(context.l10n.dark),
+                        ),
+                      ],
+                      selected: {settings.themeMode},
+                      onSelectionChanged: (mode) =>
+                          settings.setThemeMode(mode.first),
+                    ),
+                  ],
+                ),
+              ),
+              if (settings.colorTheme == null)
+                PlannerMenuRow(
+                  icon: Icons.palette_outlined,
+                  label: context.l10n.accent_color,
+                  trailing: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: settings.accentColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  onTap: () => showAccentSheet(context),
+                ),
+              SwitchListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                secondary: Icon(
+                  Icons.animation_rounded,
+                  color: context.tokens.muted,
+                ),
+                title: Text(context.l10n.animations),
+                value: settings.animations,
+                onChanged: settings.setAnimations,
+              ),
+              if (Platform.isAndroid)
+                SwitchListTile(
+                  key: const ValueKey('settings-hide-navigation'),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  secondary: Icon(
+                    Icons.fullscreen_rounded,
+                    color: context.tokens.muted,
+                  ),
+                  title: Text(context.plannerText('hideNavigation')),
+                  subtitle: Text(
+                    context.plannerText('hideNavigationInfo'),
+                    style: TextStyle(color: context.tokens.muted),
+                  ),
+                  value: settings.hideSystemNavigation,
+                  onChanged: settings.setHideSystemNavigation,
+                ),
+            ],
+          ),
           PlannerSection(context.plannerText('dailySelection')),
           PlannerGroup(
             children: [
@@ -166,22 +265,79 @@ class _PlannerSettingsPageState extends State<PlannerSettingsPage> {
               padding: EdgeInsets.only(top: 8),
               child: LinearProgressIndicator(minHeight: 2),
             ),
-          const SizedBox(height: 24),
+          // Backups work with or without an account; when signed in, an
+          // import syncs to the account like any other change.
+          PlannerSection(context.l10n.data),
           PlannerGroup(
             children: [
               PlannerMenuRow(
-                icon: Icons.tune_rounded,
-                label: context.plannerText('moreSettings'),
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const SettingsPage(),
-                    ),
-                  );
-                  if (context.mounted) await plannerAction(context, c.reload);
-                },
+                key: const ValueKey('settings-export'),
+                icon: Icons.ios_share_rounded,
+                label: context.plannerText('cloudExportDraft'),
+                onTap: () => PlannerBackup.export(context),
               ),
+              PlannerMenuRow(
+                key: const ValueKey('settings-import'),
+                icon: Icons.file_open_outlined,
+                label: context.plannerText('importData'),
+                onTap: () => PlannerBackup.import(context),
+              ),
+            ],
+          ),
+          PlannerSection(context.l10n.prefs_privacy),
+          PlannerGroup(
+            children: [
+              SwitchListTile(
+                key: const ValueKey('settings-app-lock'),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                secondary: Icon(
+                  Icons.fingerprint_rounded,
+                  color: context.tokens.muted,
+                ),
+                title: Text(context.l10n.app_lock),
+                value: settings.appLock,
+                onChanged: (value) =>
+                    SettingsActions.toggleAppLock(context, value),
+              ),
+              if (settings.appLock) ...[
+                PlannerMenuRow(
+                  icon: Icons.timer_outlined,
+                  label: context.l10n.app_lock_delay,
+                  trailing: Text(
+                    SettingsActions.appLockDelayLabels(
+                      context,
+                    )[SettingsActions.appLockDelayIndex(settings.appLockDelay)],
+                  ),
+                  onTap: () => showOptionSheet(
+                    context,
+                    title: context.l10n.app_lock_delay,
+                    options: SettingsActions.appLockDelayLabels(context),
+                    index: SettingsActions.appLockDelayIndex(
+                      settings.appLockDelay,
+                    ),
+                    onSelected: (i) => settings.setAppLockDelay(
+                      SettingsActions.appLockDelays[i],
+                    ),
+                  ),
+                ),
+                if (hasBiometricLock)
+                  PlannerMenuRow(
+                    icon: Icons.key_rounded,
+                    label: context.l10n.app_lock_method,
+                    trailing: Text(
+                      settings.appLockMode == 1
+                          ? context.l10n.pin_lock
+                          : context.l10n.app_lock_biometric,
+                    ),
+                    onTap: () => SettingsActions.chooseLockMethod(context),
+                  ),
+                if (settings.appLockMode == 1)
+                  PlannerMenuRow(
+                    icon: Icons.pin_outlined,
+                    label: context.l10n.pin_change,
+                    onTap: SettingsActions.changePin,
+                  ),
+              ],
             ],
           ),
         ],

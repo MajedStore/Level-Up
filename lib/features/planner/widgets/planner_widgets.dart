@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:streak/app/theme/app_tokens.dart';
 import 'package:streak/features/planner/data/planner_models.dart';
 import 'package:streak/features/planner/l10n/planner_l10n.dart';
-import 'package:streak/features/planner/state/planner_controller.dart';
 
 String plannerDate(DateTime day, {BuildContext? context}) => context == null
     ? DateFormat('EEEE, d MMMM', 'en').format(day)
@@ -364,10 +362,6 @@ class OccurrenceTile extends StatelessWidget {
     final o = occurrence;
     final done = o.record.status == CompletionStatus.completed;
     final skipped = o.record.status == CompletionStatus.skipped;
-    final conflict = context
-        .read<PlannerController>()
-        .conflictsFor(o)
-        .isNotEmpty;
     final identity = context.plannerText(
       o.isChallenge ? 'challengeTask' : 'routineTask',
     );
@@ -415,15 +409,6 @@ class OccurrenceTile extends StatelessWidget {
                     size: 18,
                     color: context.colors.primary,
                   ),
-                ),
-              ),
-            if (conflict)
-              Tooltip(
-                message: context.plannerText('timeConflict'),
-                child: Icon(
-                  Icons.warning_amber_rounded,
-                  size: 19,
-                  color: context.tokens.warning,
                 ),
               ),
             if (o.item.reminder.enabled)

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:streak/app/theme/app_palette.dart';
@@ -122,6 +123,22 @@ class AppTheme {
     );
   }
 
+  /// Pages draw on [AppBackground] through transparent scaffolds. Flutter's
+  /// Android transition otherwise paints `colorScheme.surface` behind the
+  /// outgoing page while it animates, which flashes a lighter shade before
+  /// the real background returns. Same builders as Flutter's defaults.
+  static const _pageTransitions = PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: PredictiveBackPageTransitionsBuilder(
+        fallbackColor: Colors.transparent,
+      ),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+      TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+    },
+  );
+
   static ButtonStyle _button(String font) => ButtonStyle(
     minimumSize: const WidgetStatePropertyAll(Size(64, 50)),
     padding: const WidgetStatePropertyAll(
@@ -192,6 +209,7 @@ class AppTheme {
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: Colors.transparent,
+      pageTransitionsTheme: _pageTransitions,
       fontFamily: ExpressType.family,
       textTheme: text,
       visualDensity: VisualDensity.standard,
@@ -314,6 +332,7 @@ class AppTheme {
       colorScheme: scheme,
 
       scaffoldBackgroundColor: Colors.transparent,
+      pageTransitionsTheme: _pageTransitions,
       fontFamily: font,
       visualDensity: VisualDensity.standard,
       splashFactory: NoSplash.splashFactory,

@@ -594,4 +594,69 @@ void main() {
       expect(controller.instances, hasLength(2));
     },
   );
+
+  test(
+    "tomorrow's package can be cancelled and replaced before the deadline",
+    () async {
+      await controller.saveTemplate(_workout());
+      await controller.updateSelectionRules(
+        deadlineMinute: 20 * 60,
+        missedPenalty: 6,
+      );
+      final deadline = controller.tomorrowSelection!.deadline;
+      final first = await controller.assignTomorrow('workout');
+      await controller.cancelTomorrow();
+      expect(controller.instances, isEmpty);
+      expect(controller.tomorrowSelection!.isPending, isTrue);
+      expect(controller.tomorrowSelection!.deadline, deadline);
+      expect(controller.tomorrowSelection!.penalty, 6);
+      expect(controller.exportState['records'], isEmpty);
+      expect(
+        controller
+            .occurrences(DateTime(2026, 10, 27))
+            .where(
+              (o) => o.challengeId == first.id,
+            ),
+        isEmpty,
+      );
+      await expectLater(controller.cancelTomorrow(), throwsStateError);
+      final second = await controller.assignTomorrow('workout');
+      expect(controller.tomorrowSelection!.instanceId, second.id);
+      time = DateTime(2026, 10, 26, 21);
+      await controller.evaluate();
+      expect(controller.ledger, isEmpty);
+    },
+  );
+
+  test(
+    'cancelling after the deadline records the missed-selection penalty once',
+    () async {
+      await controller.saveTemplate(_workout());
+      await controller.updateSelectionRules(
+        deadlineMinute: 20 * 60,
+        missedPenalty: 6,
+      );
+      await controller.assignTomorrow('workout');
+      time = DateTime(2026, 10, 26, 22);
+      await controller.cancelTomorrow();
+      expect(controller.instances, isEmpty);
+      expect(controller.tomorrowSelection!.isMissed, isTrue);
+      expect(
+        controller.ledger.where((e) => e.type == 'missed_selection').length,
+        1,
+      );
+      await expectLater(controller.assignTomorrow('workout'), throwsStateError);
+      await controller.evaluate();
+      expect(controller.ledger.length, 1);
+    },
+  );
+
+  test('a package that has started cannot be cancelled', () async {
+    await controller.saveTemplate(_workout());
+    await controller.assignTomorrow('workout');
+    time = DateTime(2026, 10, 27, 12);
+    await controller.evaluate();
+    await expectLater(controller.cancelTomorrow(), throwsStateError);
+    expect(controller.instances, hasLength(1));
+  });
 }

@@ -10,4 +10,9 @@
     <string name="widget_focus_board_label">Streak focus board</string>
     <string name="widget_todos_label">Streak to-do</string>
     <string name="widget_todos_description">See what is left to do today</string>
+    <string name="schedule_widget_label">Level Up schedule</string>
+    <string name="schedule_widget_description">Today\'s schedule at a glance</string>
+    <string name="schedule_widget_open">Open Level Up to load your schedule</string>
+    <string name="challenges_widget_label">Level Up challenges</string>
+    <string name="challenges_widget_description">Today\'s challenge and its tasks</string>
 </resources>

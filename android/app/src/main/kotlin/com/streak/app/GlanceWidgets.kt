@@ -53,6 +53,8 @@ object GlanceWidgets {
     suspend fun updateAll(context: Context) {
         val manager = AppWidgetManager.getInstance(context)
         val widgets = listOf<Pair<Class<*>, () -> GlanceAppWidget>>(
+            ScheduleWidgetProvider::class.java to { ScheduleWidget() },
+            ChallengesWidgetProvider::class.java to { ChallengesWidget() },
             HabitWidgetProvider::class.java to { HabitWidget() },
             TodayWidgetProvider::class.java to { TodayWidget() },
             StatsWidgetProvider::class.java to { StatsWidget() },

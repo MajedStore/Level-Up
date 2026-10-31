@@ -61,9 +61,17 @@ class StreakApp extends StatelessWidget {
                 value: AppTheme.systemBars(Theme.of(context).brightness),
                 child: AppLockGate(
                   child: AppBackground(
-                    child: _DesktopFrame(
-                      shell: true,
-                      child: child ?? const SizedBox.shrink(),
+                    // The app draws edge-to-edge; keep every page (and its
+                    // sheets) clear of the system navigation buttons while
+                    // the background still fills behind them.
+                    child: SafeArea(
+                      top: false,
+                      left: false,
+                      right: false,
+                      child: _DesktopFrame(
+                        shell: true,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),

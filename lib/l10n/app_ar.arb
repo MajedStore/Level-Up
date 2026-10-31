@@ -692,7 +692,27 @@
     }
   },
   "planner_confirmAssignment": "تأكيد الالتزام",
-  "planner_assignmentLocked": "لا يمكن إلغاء هذا الالتزام. تُطبق العقوبات الموضحة عند تخطي المهام.",
+  "planner_assignmentLocked": "يمكنك إلغاؤها حتى بداية الغد. تُطبق العقوبات الموضحة عند تخطي المهام.",
+  "planner_cancelTomorrow": "إلغاء باقة الغد",
+  "planner_cancelTomorrowOpen": "يمكنك اختيار باقة أخرى حتى {time}.",
+  "@planner_cancelTomorrowOpen": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_cancelTomorrowLate": "انتهت مهلة الاختيار، لذا ستُخصم {xp} نقطة خبرة.",
+  "@planner_cancelTomorrowLate": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_tomorrowCancelled": "أُلغيت باقة الغد",
+  "planner_noPackageTomorrow": "لا توجد باقة محددة للغد.",
+  "planner_packageStarted": "بدأت هذه الباقة بالفعل.",
   "planner_packageReward": "+{xp} نقطة خبرة عند الإكمال",
   "@planner_packageReward": {
     "placeholders": {
@@ -2153,7 +2173,7 @@
       }
     }
   },
-  "planner_cloudExportDraft": "تصدير المسودة المحلية",
+  "planner_cloudExportDraft": "تصدير البيانات",
   "planner_cloudPasswordRule": "استخدم عبارة مرور من ١٢ حرفًا على الأقل، واختصرها إذا كانت طويلة جدًا.",
   "planner_cloudQueueFull": "زامن تغييراتك المعلقة أو صدّرها قبل إضافة المزيد. تبقى تغييراتك الحالية محفوظة.",
   "planner_authOr": "أو",
@@ -2168,5 +2188,16 @@
   "planner_cloudResetLinkRequestInfo": "أدخل البريد الإلكتروني لحسابك وسنرسل إليك رابطًا لاختيار كلمة مرور جديدة.",
   "planner_cloudResendLink": "إعادة إرسال الرسالة",
   "planner_cloudContinueWithoutAccount": "المتابعة بدون تسجيل الدخول",
-  "planner_cloudGuest": "غير مسجّل الدخول"
+  "planner_cloudGuest": "غير مسجّل الدخول",
+  "planner_importData": "استيراد البيانات",
+  "planner_importConfirmTitle": "استبدال بياناتك؟",
+  "planner_importConfirmMessage": "سيُستبدل جدولك وتحدياتك ونقاط خبرتك في هذا الحساب بمحتوى هذا الملف. لا يمكن التراجع عن ذلك، لذا صدّر بياناتك الحالية أولًا إذا كنت قد تحتاجها.",
+  "planner_importReplace": "استبدال",
+  "planner_importDone": "تم استيراد البيانات",
+  "planner_importInvalid": "هذا الملف ليس ملف تصدير صالحًا من Level Up.",
+  "planner_anytimeToday": "في أي وقت اليوم",
+  "planner_hideNavigation": "إخفاء أزرار التنقل",
+  "planner_hideNavigationInfo": "اسحب من الحافة السفلية لإظهارها",
+  "planner_zoomIn": "تكبير",
+  "planner_zoomOut": "تصغير"
 }

@@ -1,11 +1,8 @@
 // Level Up — Based on Streak by InlitX. GPL-3.0-only.
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:streak/app/theme/app_tokens.dart';
 import 'package:streak/features/planner/l10n/planner_l10n.dart';
 import 'package:streak/features/planner/widgets/google_logo.dart';
@@ -229,46 +226,17 @@ class CloudIdentityHeader extends StatelessWidget {
 }
 
 /// Account actions for a signed-in user. Synchronisation itself is automatic,
-/// so only actions with an independent purpose are offered here.
+/// and backups live in Settings > Data, so only account-specific actions are
+/// offered here.
 class CloudAccountActions extends StatefulWidget {
   const CloudAccountActions({super.key, required this.controller});
   final CloudSyncController controller;
+
   @override
   State<CloudAccountActions> createState() => _CloudAccountActionsState();
 }
 
 class _CloudAccountActionsState extends State<CloudAccountActions> {
-  bool _exporting = false;
-
-  Future<void> _export(CloudSyncController controller) async {
-    if (_exporting || controller.exportDraft == null) return;
-    setState(() => _exporting = true);
-    try {
-      final json = await controller.exportDraft!();
-      final directory = await getTemporaryDirectory();
-      final file = File(
-        '${directory.path}/levelup-local-draft-${DateTime.now().millisecondsSinceEpoch}.json',
-      );
-      await file.writeAsString(json, flush: true);
-      if (!mounted) return;
-      final box = context.findRenderObject() as RenderBox?;
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        sharePositionOrigin: box == null
-            ? null
-            : box.localToGlobal(Offset.zero) & box.size,
-      );
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.plannerText('genericError'))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _exporting = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -301,12 +269,6 @@ class _CloudAccountActionsState extends State<CloudAccountActions> {
               leading: const GoogleLogo(size: 20),
               label: context.plannerText('cloudGoogleLink'),
               onTap: busy ? null : controller.linkGoogle,
-            ),
-          if (controller.exportDraft != null)
-            PlannerMenuRow(
-              icon: Icons.ios_share_rounded,
-              label: context.plannerText('cloudExportDraft'),
-              onTap: busy || _exporting ? null : () => _export(controller),
             ),
         ];
         return Column(

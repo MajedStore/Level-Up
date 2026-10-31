@@ -138,24 +138,11 @@
                     controllable from its notification while the app is in the background." />
         </service>
 
-        <!-- Home Widget -->
+        <!-- Level Up schedule widget: the app publishes a week of days through
+             home_widget (ScheduleWidgetService), this draws today's. -->
         <receiver
-            android:name=".HabitWidgetProvider"
-            android:label="@string/widget_habit_label"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.streak.app.UPDATE_WIDGET" />
-                <action android:name="es.antonborri.home_widget.action.UPDATE_WIDGET" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/habit_widget_info" />
-        </receiver>
-
-        <receiver
-            android:name=".TodosWidgetProvider"
-            android:label="@string/widget_todos_label"
+            android:name=".ScheduleWidgetProvider"
+            android:label="@string/schedule_widget_label"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -163,12 +150,14 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/todos_widget_info" />
+                android:resource="@xml/schedule_widget_info" />
         </receiver>
 
+        <!-- Level Up challenges widget: today's package and its tasks, from
+             the same published payload. -->
         <receiver
-            android:name=".TodayWidgetProvider"
-            android:label="@string/widget_today_label"
+            android:name=".ChallengesWidgetProvider"
+            android:label="@string/challenges_widget_label"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -176,70 +165,19 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/today_widget_info" />
+                android:resource="@xml/challenges_widget_info" />
         </receiver>
 
-        <receiver
-            android:name=".StatsWidgetProvider"
-            android:label="@string/widget_stats_label"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="es.antonborri.home_widget.action.UPDATE_WIDGET" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/stats_widget_info" />
-        </receiver>
+        <!-- The retired habit/focus/todo widgets are no longer declared, so
+             launchers cannot offer them. Only the schedule and challenges widgets
+             remain. -->
 
-        <receiver
-            android:name=".FocusWidgetProvider"
-            android:label="@string/widget_focus_label"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="es.antonborri.home_widget.action.UPDATE_WIDGET" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/focus_widget_info" />
-        </receiver>
 
-        <receiver
-            android:name=".FocusBoardWidgetProvider"
-            android:label="@string/widget_focus_board_label"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="es.antonborri.home_widget.action.UPDATE_WIDGET" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/focus_board_widget_info" />
-        </receiver>
 
-        <!-- Per-widget appearance (and habit, for the heatmap) config screen. -->
-        <activity
-            android:name=".WidgetConfigActivity"
-            android:exported="true"
-            android:theme="@style/HeatmapConfigTheme">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
-            </intent-filter>
-        </activity>
 
-        <receiver
-            android:name=".HeatmapWidgetProvider"
-            android:label="@string/widget_heatmap_label"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="es.antonborri.home_widget.action.UPDATE_WIDGET" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/heatmap_widget_info" />
-        </receiver>
+
+
+
 
         <receiver
             android:name=".WidgetRefreshReceiver"

@@ -2112,7 +2112,27 @@
     }
   },
   "planner_confirmAssignment": "Confirm commitment",
-  "planner_assignmentLocked": "This commitment cannot be cancelled. Task skips use the penalties shown.",
+  "planner_assignmentLocked": "You can cancel it until tomorrow begins. Task skips use the penalties shown.",
+  "planner_cancelTomorrow": "Cancel tomorrow's package",
+  "planner_cancelTomorrowOpen": "You can choose another package until {time}.",
+  "@planner_cancelTomorrowOpen": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_cancelTomorrowLate": "The selection deadline has passed, so {xp} XP will be deducted.",
+  "@planner_cancelTomorrowLate": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_tomorrowCancelled": "Tomorrow's package was cancelled",
+  "planner_noPackageTomorrow": "No package is assigned to tomorrow.",
+  "planner_packageStarted": "This package has already started.",
   "planner_packageReward": "+{xp} XP on completion",
   "@planner_packageReward": {
     "placeholders": {
@@ -2820,7 +2840,7 @@
       }
     }
   },
-  "planner_cloudExportDraft": "Export local draft",
+  "planner_cloudExportDraft": "Export data",
   "planner_cloudPasswordRule": "Use a passphrase of at least 12 characters. If it is too long, shorten it.",
   "planner_cloudQueueFull": "Sync or export your pending changes before adding more. Your existing changes are kept.",
   "planner_authOr": "or",
@@ -2835,5 +2855,16 @@
   "planner_cloudResetLinkRequestInfo": "Enter your account email and we will send you a link to choose a new password.",
   "planner_cloudResendLink": "Resend email",
   "planner_cloudContinueWithoutAccount": "Continue without signing in",
-  "planner_cloudGuest": "Not signed in"
+  "planner_cloudGuest": "Not signed in",
+  "planner_importData": "Import data",
+  "planner_importConfirmTitle": "Replace your data?",
+  "planner_importConfirmMessage": "Your schedule, challenges and XP on this account will be replaced with the contents of this file. This can't be undone, so export your current data first if you may need it.",
+  "planner_importReplace": "Replace",
+  "planner_importDone": "Data imported",
+  "planner_importInvalid": "This file isn't a valid Level Up export.",
+  "planner_anytimeToday": "Anytime today",
+  "planner_hideNavigation": "Hide navigation buttons",
+  "planner_hideNavigationInfo": "Swipe up from the bottom edge to show them",
+  "planner_zoomIn": "Zoom in",
+  "planner_zoomOut": "Zoom out"
 }

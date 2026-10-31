@@ -8,6 +8,9 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -48,6 +51,11 @@ class MainActivity : FlutterFragmentActivity() {
                         setSecure(call.argument<Boolean>("secure") ?: false)
                         result.success(true)
                     }
+                    "setNavigationHidden" -> {
+                        hideNavigation = call.argument<Boolean>("hidden") ?: false
+                        applyNavigationVisibility()
+                        result.success(true)
+                    }
                     "dismissNotifications" -> {
                         val manager =
                             getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -74,6 +82,36 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         preferHighestRefreshRate()
+    }
+
+    /** Set from Dart (Settings > Appearance); off until Dart says otherwise. */
+    private var hideNavigation = false
+
+    // Flutter re-applies its own system UI flags on resume, which would bring
+    // the navigation bar back, so the preference is re-applied after it.
+    override fun onPostResume() {
+        super.onPostResume()
+        applyNavigationVisibility()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) applyNavigationVisibility()
+    }
+
+    /**
+     * Hides only the navigation bar (the status bar stays). A swipe from the
+     * bottom edge shows it briefly over the app, then it hides again.
+     */
+    private fun applyNavigationVisibility() = runOnUiThread {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        if (hideNavigation) {
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.navigationBars())
+        } else {
+            controller.show(WindowInsetsCompat.Type.navigationBars())
+        }
     }
 
     /**

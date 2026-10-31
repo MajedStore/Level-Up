@@ -63,7 +63,6 @@ class _PlannerTaskPageState extends State<PlannerTaskPage> {
         pending &&
         (!o.isChallenge || package?.status == ChallengeStatus.active) &&
         !plannerDay(o.day).isAfter(plannerDay(controller.now));
-    final conflicts = controller.conflictsFor(o);
     return Scaffold(
       appBar: AppBar(
         title: Text(context.plannerText('taskDetails')),
@@ -174,30 +173,6 @@ class _PlannerTaskPageState extends State<PlannerTaskPage> {
                 ],
               ),
             ),
-          if (conflicts.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            PlannerPanel(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    color: context.tokens.warning,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      context.plannerText('overlapNames', {
-                        'names': conflicts
-                            .map((x) => plannerOccurrenceTitle(context, x))
-                            .join(', '),
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
           if (o.item.dependencies.isNotEmpty) ...[
             PlannerSection(context.plannerText('prerequisites')),
             Text(
@@ -249,46 +224,6 @@ class _PlannerTaskPageState extends State<PlannerTaskPage> {
               ),
             ],
           ),
-          if (o.item.steps.isNotEmpty) ...[
-            PlannerSection(
-              context.plannerText('stepsProgress', {
-                'done': plannerNumber(context, o.record.completedSteps.length),
-                'total': plannerNumber(context, o.item.steps.length),
-              }),
-            ),
-            PlannerPanel(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Column(
-                children: [
-                  for (var index = 0; index < o.item.steps.length; index++)
-                    CheckboxListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                      ),
-                      value: o.record.completedSteps.contains(index),
-                      onChanged:
-                          !actionable ||
-                              _busy ||
-                              o.record.completedSteps.contains(index)
-                          ? null
-                          : (_) => _run(
-                              () => controller.completeStep(o.id, index),
-                            ),
-                      title: Text(
-                        '${plannerNumber(context, index + 1)}. ${plannerOccurrenceStep(context, o, index)}',
-                      ),
-                      subtitle:
-                          pending &&
-                              index > 0 &&
-                              !o.record.completedSteps.contains(index - 1)
-                          ? Text(context.plannerText('previousStepFirst'))
-                          : null,
-                      controlAffinity: ListTileControlAffinity.leading,
-                    ),
-                ],
-              ),
-            ),
-          ],
           if (o.item.target != null) ...[
             PlannerSection(context.plannerText('measuredProgress')),
             PlannerPanel(

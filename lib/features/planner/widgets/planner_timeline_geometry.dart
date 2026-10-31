@@ -14,11 +14,13 @@ class PlannerTimelineEvent {
 /// Civil-time geometry, shared by display and scroll anchoring. Short occupied
 /// spans expand locally instead of drawing 48px blocks over their neighbours.
 /// Hour labels use the same mapping, including gaps and midnight clipping.
+/// [zoom] scales the base 36 px per hour so times can be read more precisely.
 class PlannerDayLayout {
   PlannerDayLayout(
     DateTime date,
     Iterable<PlannerOccurrence> occurrences, {
     double textScale = 1,
+    double zoom = 1,
   }) : day = plannerDay(date) {
     final next = plannerAddDays(day, 1);
     for (final occurrence in occurrences) {
@@ -46,7 +48,7 @@ class PlannerDayLayout {
     _minutes = boundaries;
     final lengths = [
       for (var i = 1; i < boundaries.length; i++)
-        (boundaries[i] - boundaries[i - 1]) * .60,
+        (boundaries[i] - boundaries[i - 1]) * .60 * zoom,
     ];
     // Smallest intervals first keep neighbouring short activities distinct.
     final byDuration = [...events]

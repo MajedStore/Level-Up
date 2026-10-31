@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:streak/app/home_shell.dart';
 import 'package:streak/app/theme/app_tokens.dart';
 import 'package:streak/core/database/local_store.dart';
 import 'package:streak/features/planner/data/planner_models.dart';
 import 'package:streak/features/planner/l10n/planner_l10n.dart';
 import 'package:streak/features/planner/state/planner_controller.dart';
+import 'package:streak/features/planner/widgets/anytime_challenges.dart';
 import 'package:streak/features/planner/widgets/planner_widgets.dart';
 import 'package:streak/features/planner/widgets/planner_timeline.dart';
 import 'package:streak/features/planner/pages/planner_challenges_page.dart';
@@ -15,6 +15,7 @@ import 'package:streak/features/planner/pages/planner_task_page.dart';
 import 'package:streak/features/planner/pages/planner_settings_page.dart';
 import 'package:streak/services/planner_sync.dart';
 import 'package:streak/services/cloud_sync_controller.dart';
+import 'package:streak/services/schedule_widget_service.dart';
 import 'package:streak/features/planner/pages/cloud_account_page.dart';
 
 class LevelUpShell extends StatefulWidget {
@@ -44,17 +45,45 @@ class _LevelUpShellState extends State<LevelUpShell>
     unawaited(LocalStore.writeSetting(_withoutAccountKey, value));
   }
 
+  /// Schedule zoom, remembered on this device.
+  static const _zoomKey = 'timelineZoom';
+  late double _zoom = LocalStore.setting<num>(_zoomKey, 1).toDouble().clamp(
+    PlannerTimeline.minZoom,
+    PlannerTimeline.maxZoom,
+  );
+
+  void _setZoom(double value) {
+    if (!mounted || value == _zoom) return;
+    setState(() => _zoom = value);
+    unawaited(LocalStore.writeSetting(_zoomKey, value));
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _planner = context.read<PlannerController>()
-      ..addListener(_scheduleDeadlineRefresh);
+      ..addListener(_scheduleDeadlineRefresh)
+      ..addListener(_publishWidget);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _scheduleDeadlineRefresh();
       unawaited(_refresh());
     });
+  }
+
+  /// Keeps the home-screen schedule widget current: after planner changes,
+  /// language changes (labels are localised here) and on resume.
+  void _publishWidget() {
+    final planner = _planner;
+    if (!mounted || planner == null) return;
+    ScheduleWidgetService.publish(context, planner);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _publishWidget();
   }
 
   void _scheduleDeadlineRefresh() {
@@ -136,6 +165,7 @@ class _LevelUpShellState extends State<LevelUpShell>
       _timelineNavigation.refreshClock();
       unawaited(_refresh());
       _resumeCloudSync();
+      _publishWidget();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _timelineNavigation.setVisible(false);
@@ -164,6 +194,7 @@ class _LevelUpShellState extends State<LevelUpShell>
     WidgetsBinding.instance.removeObserver(this);
     _deadline?.cancel();
     _planner?.removeListener(_scheduleDeadlineRefresh);
+    _planner?.removeListener(_publishWidget);
     super.dispose();
   }
 
@@ -215,6 +246,8 @@ class _LevelUpShellState extends State<LevelUpShell>
             _PlannerTimelinePage(
               key: PageStorageKey('schedule'),
               navigation: _timelineNavigation,
+              zoom: _zoom,
+              onZoom: _setZoom,
             ),
             const PlannerChallengesPage(),
             _ProfilePage(onSignIn: () => _setWithoutAccount(false)),
@@ -264,17 +297,29 @@ void openPlannerTask(BuildContext context, PlannerOccurrence occurrence) =>
     );
 
 class _PlannerTimelinePage extends StatelessWidget {
-  const _PlannerTimelinePage({super.key, required this.navigation});
+  const _PlannerTimelinePage({
+    super.key,
+    required this.navigation,
+    required this.zoom,
+    required this.onZoom,
+  });
   final PlannerTimelineNavigation navigation;
+  final double zoom;
+  final ValueChanged<double> onZoom;
   @override
   Widget build(BuildContext context) {
     final c = context.watch<PlannerController>();
     return PlannerTimeline(
       controller: c,
       navigation: navigation,
+      zoom: zoom,
+      onZoom: onZoom,
       onOpen: (occurrence) => openPlannerTask(context, occurrence),
       onAdd: (day) => addRoutine(context, date: day),
       header: _LevelSummary(controller: c),
+      banner: AnytimeChallengeStrip(
+        onOpen: (occurrence) => openPlannerTask(context, occurrence),
+      ),
     );
   }
 }
@@ -374,19 +419,6 @@ class _ProfilePage extends StatelessWidget {
               onTap: () => _open(context, (_) => const _AchievementsPage()),
             ),
             PlannerMenuRow(
-              icon: Icons.local_fire_department_outlined,
-              label: context.plannerText('habitFocusTools'),
-              onTap: () => _open(
-                context,
-                (_) => Scaffold(
-                  appBar: AppBar(
-                    title: Text(context.plannerText('habitFocusTools')),
-                  ),
-                  body: const HomeShell(),
-                ),
-              ),
-            ),
-            PlannerMenuRow(
               icon: Icons.tune_rounded,
               label: context.plannerText('settings'),
               onTap: () => _open(context, (_) => const PlannerSettingsPage()),
@@ -400,6 +432,10 @@ class _ProfilePage extends StatelessWidget {
         const SizedBox(height: 20),
         Center(
           child: TextButton(
+            key: const ValueKey('profile-about'),
+            // The About dialog holds the app's legal notices. The upstream
+            // Streak licence (ADDITIONAL_TERMS.md, GPL-3.0 section 7(b))
+            // requires its attribution wherever those notices are shown.
             onPressed: () => showAboutDialog(
               context: context,
               applicationName: 'Level Up',
@@ -409,9 +445,7 @@ class _ProfilePage extends StatelessWidget {
               foregroundColor: context.tokens.muted,
               textStyle: Theme.of(context).textTheme.bodySmall,
             ),
-            child: Text(
-              '${context.plannerText('about')} · Based on Streak by InlitX',
-            ),
+            child: const Text('Level Up'),
           ),
         ),
       ],

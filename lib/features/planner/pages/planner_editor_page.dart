@@ -43,9 +43,6 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
   late final TextEditingController _description = TextEditingController(
     text: widget.item?.description,
   );
-  late final TextEditingController _steps = TextEditingController(
-    text: widget.item?.steps.join('\n'),
-  );
   late final TextEditingController _target = TextEditingController(
     text: widget.item?.target?.toString() ?? '',
   );
@@ -63,7 +60,9 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
       : widget.item!.startMinute != null;
   late int _start = widget.item?.startMinute ?? 9 * 60;
   late int _end = widget.item?.endMinute ?? 10 * 60;
-  late bool _overnight = widget.item?.overnight ?? false;
+
+  /// An end time earlier than the start always means the next day.
+  bool get _overnight => _end < _start;
   late PlannerRecurrence _recurrence =
       _baseItem?.recurrence ?? PlannerRecurrence.once;
   late final Set<int> _weekdays = {...?_baseItem?.weekdays};
@@ -82,10 +81,45 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
   @override
   void dispose() {
     _advanced.dispose();
-    for (final c in [_title, _description, _steps, _target, _unit, _interval]) {
+    for (final c in [_title, _description, _target, _unit, _interval]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  /// Asks for a custom category name and selects it.
+  Future<void> _newCategory() async {
+    var input = '';
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(dialog.plannerText('newCategory')),
+        content: TextField(
+          key: const ValueKey('editor-category-name'),
+          autofocus: true,
+          maxLength: 40,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(
+            labelText: dialog.plannerText('categoryName'),
+            counterText: '',
+          ),
+          onChanged: (value) => input = value,
+          onSubmitted: (value) => Navigator.pop(dialog, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog),
+            child: Text(dialog.plannerText('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, input),
+            child: Text(dialog.plannerText('save')),
+          ),
+        ],
+      ),
+    );
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isNotEmpty && mounted) setState(() => _category = trimmed);
   }
 
   String _time(int value) =>
@@ -117,13 +151,8 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
       );
       return;
     }
-    if (_scheduled &&
-        ((!_overnight && _end <= _start) || (_overnight && _end > _start))) {
-      setState(
-        () => _timeError = _overnight
-            ? context.plannerText('invalidOvernight')
-            : context.plannerText('invalidEndTime'),
-      );
+    if (_scheduled && _end == _start) {
+      setState(() => _timeError = context.plannerText('invalidEndTime'));
       return;
     }
     if ((_recurrence == PlannerRecurrence.weekdays ||
@@ -150,11 +179,7 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
         sound: _sound,
         vibrate: _vibrate,
       ),
-      steps: _steps.text
-          .split('\n')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList(),
+      steps: const [],
       target: _target.text.trim().isEmpty
           ? null
           : plannerParseNumber(_target.text)!.toDouble(),
@@ -163,27 +188,6 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
       xp: 0,
     );
     final controller = context.read<PlannerController>();
-    final overlaps = controller
-        .conflictsFor(
-          PlannerOccurrence(
-            id: '${item.id}:${_date.toIso8601String()}',
-            item: item,
-            day: _date,
-          ),
-        )
-        .where((o) => o.itemId != item.id)
-        .toList();
-    if (overlaps.isNotEmpty &&
-        !await plannerConfirm(
-          context,
-          title: context.plannerText('activitiesOverlap'),
-          message: context.plannerText('overlapSaveInfo', {
-            'names': overlaps.map((o) => o.title).join(', '),
-          }),
-          action: context.plannerText('saveBoth'),
-        )) {
-      return;
-    }
     if (!mounted) return;
     setState(() => _busy = true);
     final success = await plannerAction(
@@ -233,19 +237,21 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final others = context
+        .watch<PlannerController>()
+        .items
+        .where((i) => i.id != widget.item?.id)
+        .toList();
+    // Defaults first, then names the user typed for other routines.
     final categories = {
       'Personal',
       'Study',
       'Work',
       'Fitness',
       'Rest',
+      ...others.map((i) => i.category).where((c) => c.trim().isNotEmpty),
       _category,
     }.toList();
-    final others = context
-        .watch<PlannerController>()
-        .items
-        .where((i) => i.id != widget.item?.id)
-        .toList();
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -352,40 +358,15 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
                         ),
                         onPressed: () => _chooseTime(_end, (v) => _end = v),
                         child: Text(
-                          context.plannerText('endTime', {
-                            'time': _time(_end),
-                          }),
+                          '${context.plannerText('endTime', {'time': _time(_end)})}'
+                          '${_overnight ? ' ${context.plannerText('nextDaySuffix')}' : ''}',
                           textAlign: TextAlign.center,
                         ),
                       ),
                     ),
                   ],
                 ),
-                if (_end <= _start || _overnight)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: PlannerGroup(
-                      children: [
-                        SwitchListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                          ),
-                          secondary: Icon(
-                            Icons.nights_stay_outlined,
-                            color: context.tokens.muted,
-                          ),
-                          title: Text(context.plannerText('endsNextDay')),
-                          value: _overnight,
-                          onChanged: (v) => setState(() {
-                            _overnight = v;
-                            _timeError = null;
-                          }),
-                        ),
-                      ],
-                    ),
-                  ),
-                if ((_overnight && _end <= _start) ||
-                    (!_overnight && _end > _start))
+                if (_end != _start)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: ActivityTimelinePreview(
@@ -620,34 +601,26 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: _category,
-                    decoration: InputDecoration(
-                      labelText: context.plannerText('category'),
-                    ),
-                    items: categories
-                        .map(
-                          (s) => DropdownMenuItem(
-                            value: s,
-                            child: Text(plannerCategory(context, s)),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) => setState(() => _category = v!),
+                  PlannerSection(context.plannerText('category')),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final name in categories)
+                        ChoiceChip(
+                          label: Text(plannerCategory(context, name)),
+                          selected: _category == name,
+                          onSelected: (_) => setState(() => _category = name),
+                        ),
+                      ActionChip(
+                        key: const ValueKey('editor-new-category'),
+                        avatar: const Icon(Icons.add_rounded, size: 18),
+                        label: Text(context.plannerText('newCategory')),
+                        onPressed: _newCategory,
+                      ),
+                    ],
                   ),
-                  PlannerSection(context.plannerText('stepsGoals')),
-                  TextFormField(
-                    controller: _steps,
-                    minLines: 2,
-                    maxLines: 6,
-                    decoration: InputDecoration(
-                      labelText: context.plannerText('orderedSteps'),
-                      hintText: context.plannerText('oneStepPerLine'),
-                      helperText: context.plannerText('allStepsInOrder'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  PlannerSection(context.plannerText('measuredProgress')),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

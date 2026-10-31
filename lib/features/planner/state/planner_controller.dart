@@ -121,6 +121,7 @@ class PlannerController extends ChangeNotifier {
   Future<T> _change<T>(
     T Function(PlannerState draft) action, {
     bool evaluationOnly = false,
+    PlannerState? replacement,
   }) {
     final result = Completer<T>();
     _queue = _queue.then((_) async {
@@ -154,7 +155,7 @@ class PlannerController extends ChangeNotifier {
           _operationTime = highWater != null && observed.isBefore(highWater)
               ? observed.add(highWater.difference(observed))
               : observed;
-          final draft = PlannerState.fromMap(_state.toMap());
+          final draft = PlannerState.fromMap((replacement ?? _state).toMap());
           _evaluate(draft);
           final evaluated = PlannerState.fromMap(draft.toMap());
           final evaluationChanged =
@@ -234,6 +235,12 @@ class PlannerController extends ChangeNotifier {
   }
 
   Future<void> evaluate() => _change((_) {}, evaluationOnly: true);
+
+  /// Replaces all planner data (schedule, challenges, XP) with [state], e.g.
+  /// from an imported export. It goes through the normal commit path, so it
+  /// is evaluated at the current time, persisted, and synced like any edit.
+  Future<void> replaceState(Map<String, dynamic> state) =>
+      _change((_) {}, replacement: PlannerState.fromMap(state));
 
   static DateTime weekStart(
     DateTime day, {
@@ -514,10 +521,8 @@ class PlannerController extends ChangeNotifier {
     final occurrence = _resolve(state, id);
     if (occurrence.record.status != CompletionStatus.pending) return;
     _assertAvailable(state, occurrence);
-    if (occurrence.record.completedSteps.toSet().length <
-        occurrence.item.steps.length) {
-      throw StateError('Complete every required step first.');
-    }
+    // Steps are no longer a feature; older data may still carry them, but
+    // they never block completion.
     if (occurrence.item.target != null &&
         occurrence.record.amount < occurrence.item.target!) {
       throw StateError(
@@ -568,9 +573,7 @@ class PlannerController extends ChangeNotifier {
       amount: amount,
       at: now,
     );
-    if (amount >= occurrence.item.target! &&
-        occurrence.record.completedSteps.length >=
-            occurrence.item.steps.length) {
+    if (amount >= occurrence.item.target!) {
       _finishTask(state, _resolve(state, id));
     }
   });
@@ -837,6 +840,43 @@ class PlannerController extends ChangeNotifier {
     final instance = _startInstance(state, template, startDate: target);
     state.selections[index] = selection.copyWith(instanceId: instance.id);
     return instance;
+  });
+
+  /// Tomorrow's package has not started, so it can still be withdrawn. The
+  /// date's selection reopens with its original deadline: before it, another
+  /// package can be chosen; after it, the missed-selection penalty applies.
+  Future<void> cancelTomorrow() => _change((state) {
+    final target = plannerAddDays(plannerDay(now), 1);
+    final index = state.selections.indexWhere(
+      (s) => s.dateKey == plannerDateKey(target),
+    );
+    final selection = index < 0 ? null : state.selections[index];
+    final instance = state.instances
+        .where((i) => i.id == selection?.instanceId)
+        .firstOrNull;
+    if (selection == null || instance == null) {
+      throw StateError('No package is assigned to tomorrow.');
+    }
+    final prefix = '${instance.id}/';
+    if (plannerDateKey(instance.startDate) != selection.dateKey ||
+        instance.status != ChallengeStatus.active ||
+        state.ledger.any(
+          (e) =>
+              e.relatedId == instance.id ||
+              (e.relatedId?.startsWith(prefix) ?? false),
+        )) {
+      throw StateError('This package has already started.');
+    }
+    state.instances.removeWhere((i) => i.id == instance.id);
+    state.records.removeWhere((key, _) => key.startsWith(prefix));
+    state.overrides.removeWhere((key, _) => key.startsWith(prefix));
+    state.reminders.removeWhere((key, _) => key.startsWith(prefix));
+    state.exclusions.removeWhere((key) => key.startsWith(prefix));
+    state.selections[index] = DailySelection(
+      targetDate: selection.targetDate,
+      deadline: selection.deadline,
+      penalty: selection.penalty,
+    );
   });
 
   Future<void> updateSelectionRules({

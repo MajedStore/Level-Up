@@ -1014,7 +1014,6 @@ class _PackageTaskEditorPageState extends State<_PackageTaskEditorPage> {
     final task = widget.task;
     return task != null &&
         (task.description.isNotEmpty ||
-            task.steps.isNotEmpty ||
             task.target != null ||
             task.dependencies.isNotEmpty ||
             !task.mandatory ||
@@ -1035,12 +1034,6 @@ class _PackageTaskEditorPageState extends State<_PackageTaskEditorPage> {
           const SizedBox(height: 12),
           Text(task.description),
         ],
-        for (final step in plannerDefinitionSteps(context, task))
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.checklist),
-            title: Text(step),
-          ),
         if (task.target != null)
           ListTile(
             contentPadding: EdgeInsets.zero,

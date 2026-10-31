@@ -13,6 +13,7 @@ import 'package:streak/features/focus/widgets/focus_backgrounds.dart';
 import 'package:streak/services/app_icon_service.dart';
 import 'package:streak/services/backup_service.dart';
 import 'package:streak/services/home_widget_service.dart';
+import 'package:streak/services/system_navigation.dart';
 
 Locale localeFromCode(String code) {
   final parts = code.split(RegExp('[_-]'));
@@ -87,6 +88,8 @@ class SettingsController extends ChangeNotifier {
     _compactCards = LocalStore.setting('compactCards', false);
     _glassEffects = LocalStore.setting('glassEffects', true);
     _animations = LocalStore.setting('animations', true);
+    _hideSystemNavigation = LocalStore.setting('hideSystemNavigation', true);
+    SystemNavigation.setHidden(_hideSystemNavigation);
     _todosEnabled = LocalStore.setting('todosEnabled', true);
     _todoPapers = LocalStore.setting('todoPapers', true);
     _sortCompletedLast = LocalStore.setting('sortCompletedLast', true);
@@ -197,6 +200,7 @@ class SettingsController extends ChangeNotifier {
   late bool _compactCards;
   late bool _glassEffects;
   late bool _animations;
+  late bool _hideSystemNavigation;
   late bool _todosEnabled;
   late int _appStyle;
   late bool _sortCompletedLast;
@@ -456,6 +460,16 @@ class SettingsController extends ChangeNotifier {
   Future<void> setAnimations(bool value) async {
     _animations = value;
     await LocalStore.writeSetting('animations', value);
+    notifyListeners();
+  }
+
+  /// Hide Android's on-screen navigation buttons (on by default).
+  bool get hideSystemNavigation => _hideSystemNavigation;
+
+  Future<void> setHideSystemNavigation(bool value) async {
+    _hideSystemNavigation = value;
+    await LocalStore.writeSetting('hideSystemNavigation', value);
+    await SystemNavigation.setHidden(value);
     notifyListeners();
   }
 

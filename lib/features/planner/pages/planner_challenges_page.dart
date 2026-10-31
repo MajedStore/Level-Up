@@ -675,7 +675,6 @@ class _DefinitionRow extends StatelessWidget {
     final children = template.childrenOf(task.id);
     final legacy = template.rewardMode == ChallengeRewardMode.legacyPerTask;
     final hasSavedConditions =
-        task.steps.isNotEmpty ||
         task.target != null ||
         task.dependencies.isNotEmpty ||
         template.durationDays > 1;
@@ -760,11 +759,6 @@ class _DefinitionRow extends StatelessWidget {
                     .map((t) => plannerDefinitionTitle(context, t))
                     .join(', '),
               ),
-            ),
-          for (var i = 0; i < task.steps.length; i++)
-            ListTile(
-              leading: Text(plannerNumber(context, i + 1)),
-              title: Text(plannerDefinitionSteps(context, task)[i]),
             ),
         ],
         ListTile(
@@ -912,9 +906,51 @@ class ChallengeInstancePage extends StatelessWidget {
               ),
             ],
           ),
+          if (c.tomorrowSelection?.instanceId == instance.id) ...[
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              key: const ValueKey('cancel-tomorrow'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: context.colors.error,
+              ),
+              icon: const Icon(Icons.event_busy_outlined),
+              label: Text(context.plannerText('cancelTomorrow')),
+              onPressed: () => _cancelTomorrow(context, c),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _cancelTomorrow(
+    BuildContext context,
+    PlannerController c,
+  ) async {
+    final selection = c.tomorrowSelection!;
+    final open = c.now.isBefore(selection.deadline);
+    final confirmed = await plannerConfirm(
+      context,
+      title: context.plannerText('cancelTomorrow'),
+      message: open
+          ? context.plannerText('cancelTomorrowOpen', {
+              'time': TimeOfDay.fromDateTime(
+                selection.deadline.toLocal(),
+              ).format(context),
+            })
+          : context.plannerText('cancelTomorrowLate', {
+              'xp': plannerNumber(context, selection.penalty),
+            }),
+      action: context.plannerText('cancelTomorrow'),
+    );
+    if (!confirmed || !context.mounted) return;
+    final navigator = Navigator.of(context);
+    final success = await plannerAction(
+      context,
+      c.cancelTomorrow,
+      success: context.plannerText('tomorrowCancelled'),
+    );
+    if (success) navigator.pop();
   }
 }
 

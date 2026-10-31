@@ -379,7 +379,10 @@ void main() {
     expect(find.text('Saved task conditions'), findsOneWidget);
     expect(find.byType(TextFormField), findsOneWidget);
     await _tap(tester, find.text('Saved task conditions'));
-    expect(find.text('First step'), findsOneWidget);
+    // Steps are no longer a feature, so they are not listed; other saved
+    // conditions still are.
+    expect(find.text('First step'), findsNothing);
+    expect(find.text('Saved detail'), findsOneWidget);
     await tester.enterText(
       find.byKey(const ValueKey('package-task-name')),
       'Renamed',

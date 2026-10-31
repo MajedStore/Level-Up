@@ -5,7 +5,6 @@ import 'package:streak/app/theme/app_typography.dart';
 import 'package:streak/features/planner/data/planner_models.dart';
 import 'package:streak/features/planner/state/planner_controller.dart';
 import 'package:streak/features/planner/widgets/planner_timeline.dart';
-import 'package:streak/features/planner/widgets/planner_widgets.dart';
 import 'support/app_harness.dart';
 
 final day = DateTime(2026, 10, 29);
@@ -184,16 +183,35 @@ void main() {
           .01,
         ),
       );
-      final cluster = find.byKey(
-        const ValueKey('timeline-overlap-2026-10-29-0'),
+      // Every overlapping block is laid out on its own lane; none collapse
+      // into a summary. Lanes that do not fit scroll sideways.
+      final lanes = find.byKey(const PageStorageKey('timeline-lanes-2026-10-29'));
+      final blocks = find.descendant(
+        of: lanes,
+        matching: find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith('timeline-event-'),
+        ),
       );
-      await tester.ensureVisible(cluster);
-      await tester.tap(cluster);
+      expect(blocks, findsNWidgets(7));
+      final first = find.byKey(
+        const ValueKey('timeline-event-event0@2026-10-29-2026-10-29'),
+      );
+      await tester.ensureVisible(first);
       await tester.pumpAndSettle();
-      expect(find.byType(OccurrenceTile), findsWidgets);
-      await tester.tap(find.byType(OccurrenceTile).first);
+      final last = find.byKey(
+        const ValueKey('timeline-event-event5@2026-10-29-2026-10-29'),
+      );
+      // Lanes open at the start (they must not inherit the vertical list's
+      // saved offset); later lanes are off-screen until scrolled to.
+      expect(tester.getTopLeft(first).dx, lessThan(100));
+      expect(tester.getTopLeft(last).dx, greaterThan(320));
+      await tester.dragUntilVisible(last, lanes, const Offset(-200, 0));
       await tester.pumpAndSettle();
-      expect(opened, hasLength(1));
+      await tester.tap(last);
+      await tester.pumpAndSettle();
+      expect(opened.single.id, 'event5@2026-10-29');
       expect(c.occurrenceById(opened.single.id), isNotNull);
       expect(c.exportState, before);
       expect(tester.takeException(), isNull);

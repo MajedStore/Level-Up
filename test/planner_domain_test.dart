@@ -444,14 +444,24 @@ void main() {
     },
   );
 
+  test('stored steps never block completing a task', () async {
+    await controller.saveItem(
+      item('legacy', steps: ['Warm up', 'Workout', 'Stretch']),
+    );
+    await controller.complete(id('legacy'));
+    expect(
+      controller.occurrenceById(id('legacy'))!.record.status,
+      CompletionStatus.completed,
+    );
+  });
+
   test(
-    'sequential groups enforce order and parent completion requires all steps',
+    'legacy step records still apply in order when recorded',
     () async {
       await controller.saveItem(
         item('sequence', steps: ['Warm up', 'Workout', 'Stretch']),
       );
       final taskId = id('sequence');
-      await expectLater(controller.complete(taskId), throwsStateError);
       await expectLater(controller.completeStep(taskId, 1), throwsStateError);
       await controller.completeStep(taskId, 0);
       await controller.completeStep(taskId, 0);

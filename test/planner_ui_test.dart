@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:streak/core/database/local_store.dart';
@@ -6,11 +8,14 @@ import 'package:streak/features/planner/state/planner_controller.dart';
 import 'package:streak/features/planner/pages/level_up_shell.dart';
 import 'package:streak/features/planner/pages/planner_challenges_page.dart';
 import 'package:streak/features/planner/pages/planner_task_page.dart';
+import 'package:streak/features/planner/pages/planner_backup.dart';
+import 'package:streak/features/planner/pages/planner_settings_page.dart';
 import 'package:streak/features/planner/pages/cloud_account_page.dart';
 import 'package:streak/features/planner/widgets/planner_timeline.dart';
 import 'package:streak/features/planner/widgets/google_logo.dart';
 import 'package:streak/services/cloud_api.dart';
 import 'package:streak/services/cloud_sync_controller.dart';
+import 'package:streak/services/planner_import.dart';
 import 'support/app_harness.dart';
 import 'cloud_sync_controller_test.dart'
     show FakeCloudApi, MemoryCloudCache, MemorySessions;
@@ -23,6 +28,15 @@ PlannerController _controller() => PlannerController(
   catalog: [],
 );
 Future<void> _refresh(PlannerController c) => c.evaluate();
+
+/// The schedule's vertical day list; each day also has a sideways lane view.
+final _timelineScroll = find
+    .descendant(
+      of: find.byKey(const PageStorageKey('timeline-scroll')),
+      matching: find.byType(Scrollable),
+    )
+    .first;
+
 Future<void> _tap(WidgetTester tester, Finder finder) async {
   if (finder.evaluate().isEmpty) {
     await tester.scrollUntilVisible(finder, 300, maxScrolls: 30);
@@ -88,7 +102,12 @@ void main() {
       expect(find.text('Daily progress'), findsNothing);
       expect(find.byType(NavigationDestination), findsNWidgets(3));
       final fourthDay = find.byKey(const ValueKey('timeline-day-2026-11-02'));
-      await tester.scrollUntilVisible(fourthDay, 500, maxScrolls: 40);
+      await tester.scrollUntilVisible(
+        fourthDay,
+        500,
+        maxScrolls: 40,
+        scrollable: _timelineScroll,
+      );
       await tester.ensureVisible(fourthDay);
       await tester.pumpAndSettle();
       expect(fourthDay, findsOneWidget);
@@ -176,7 +195,11 @@ void main() {
       expect(find.byType(PlannerTimeline), findsOneWidget);
       expect(LocalStore.setting('levelUpContinueWithoutAccount', false), true);
 
-      // The choice survives an app restart.
+      // The choice survives an app restart. Let the saved setting reach
+      // storage first; the shell writes it without awaiting.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
       await tester.pumpWidget(const SizedBox());
       await open();
       expect(find.byType(PlannerTimeline), findsOneWidget);
@@ -199,11 +222,14 @@ void main() {
       );
       await _tap(tester, find.byKey(const ValueKey('cloud-submit')));
       expect(cloud.user?.id, 'a');
-      expect(find.byType(PlannerTimeline), findsOneWidget);
+      // Back in the app on the Profile tab the user came from.
+      expect(find.byType(CloudAccountPage), findsNothing);
+      expect(find.text('a@example.com'), findsOneWidget);
+      expect(find.text('Not signed in'), findsNothing);
       expect(LocalStore.setting('levelUpContinueWithoutAccount', true), false);
 
       // After an account session ends, the sign-in screen returns.
-      await cloud.signOut();
+      await tester.runAsync(cloud.signOut);
       await tester.pumpAndSettle();
       expect(find.byType(CloudAccountPage), findsOneWidget);
       expect(find.byType(PlannerTimeline), findsNothing);
@@ -280,7 +306,23 @@ void main() {
       await _tap(tester, find.byIcon(Icons.person_outline_rounded));
       expect(find.text('a@example.com'), findsOneWidget);
       expect(find.text('Sync now'), findsNothing);
-      expect(find.text('Export local draft'), findsOneWidget);
+      // Backups live in Settings > Data, not on Profile.
+      expect(find.text('Export data'), findsNothing);
+      expect(find.text('Import data'), findsNothing);
+      // The habit/focus tools are gone; the footer names only the app.
+      expect(find.text('Habit & focus tools'), findsNothing);
+      expect(find.textContaining('Based on Streak'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('profile-about')),
+        300,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('Level Up'), findsOneWidget);
+      // Streak's GPL section 7(b) term requires the attribution in the
+      // About screen, where the app's legal notices live.
+      await _tap(tester, find.byKey(const ValueKey('profile-about')));
+      expect(find.textContaining('Based on Streak by InlitX'), findsOneWidget);
+      await _tap(tester, find.text('Close'));
       expect(find.text('Sign out'), findsOneWidget);
 
       api.getError = null;
@@ -301,6 +343,98 @@ void main() {
   );
 
   testWidgets(
+    'Settings backup exports, rejects bad files, and restores after confirmation',
+    (tester) async {
+      // No account: backups work on this device alone.
+      final planner = _controller();
+      await planner.saveItem(
+        PlannerItem(id: 'old', title: 'Old task', date: _now),
+      );
+      File? shared;
+      var file = '{}';
+      final originalPick = PlannerBackup.pickFile;
+      final originalShare = PlannerBackup.shareFile;
+      PlannerBackup.pickFile = () async => file;
+      PlannerBackup.shareFile = (_, written) async => shared = written;
+      addTearDown(() {
+        PlannerBackup.pickFile = originalPick;
+        PlannerBackup.shareFile = originalShare;
+      });
+      await pumpScreen(tester, const PlannerSettingsPage(), planner: planner);
+
+      // Export writes a planner backup that the import accepts.
+      await tester.runAsync(() async {
+        await PlannerBackup.export(
+          tester.element(find.byType(PlannerSettingsPage)),
+        );
+      });
+      final exported = await tester.runAsync(() => shared!.readAsString());
+      expect(
+        PlannerState.fromMap(
+          plannerStateFromImport(exported!),
+        ).items.single.title,
+        'Old task',
+      );
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('settings-import')),
+        300,
+      );
+      // A file that is not a Level Up backup changes nothing.
+      await _tap(tester, find.byKey(const ValueKey('settings-import')));
+      expect(find.text("This file isn't a valid Level Up export."), findsOne);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(planner.items.single.id, 'old');
+
+      // A valid backup still asks first; going back keeps the data.
+      file = encodePlannerBackup(
+        PlannerState(
+          items: [PlannerItem(id: 'new', title: 'Imported task', date: _now)],
+        ).toMap(),
+        _now,
+      );
+      await _tap(tester, find.byKey(const ValueKey('settings-import')));
+      expect(find.text('Replace your data?'), findsOneWidget);
+      await _tap(tester, find.text('Go back'));
+      expect(planner.items.single.id, 'old');
+
+      await _tap(tester, find.byKey(const ValueKey('settings-import')));
+      await _tap(tester, find.text('Replace'));
+      expect(planner.items.single.title, 'Imported task');
+      expect(find.text('Data imported'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      planner.dispose();
+    },
+  );
+
+  testWidgets('settings holds appearance and privacy with no separate app', (
+    tester,
+  ) async {
+    final planner = _controller();
+    await pumpScreen(tester, const PlannerSettingsPage(), planner: planner);
+    expect(find.byKey(const ValueKey('settings-theme-mode')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('settings-app-lock')),
+      300,
+    );
+    expect(find.byKey(const ValueKey('settings-app-lock')), findsOneWidget);
+    expect(find.text('More settings'), findsNothing);
+    await _tap(tester, find.text('Dark'));
+    expect(
+      tester
+          .widget<SegmentedButton<ThemeMode>>(
+            find.byKey(const ValueKey('settings-theme-mode')),
+          )
+          .selected,
+      {ThemeMode.dark},
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    planner.dispose();
+  });
+
+  testWidgets(
     'today challenge controls are on Challenges, tasks stay on Schedule',
     (
       tester,
@@ -318,6 +452,7 @@ void main() {
         find.text('Warm-up'),
         300,
         maxScrolls: 30,
+        scrollable: _timelineScroll,
       );
       await _tap(tester, find.byIcon(Icons.bolt_outlined));
       expect(find.text("Today's challenge"), findsOneWidget);
@@ -410,7 +545,44 @@ void main() {
     c.dispose();
   });
 
-  testWidgets('sequential challenge rewards only after all steps', (
+  testWidgets("tomorrow's package can be cancelled from its page", (
+    tester,
+  ) async {
+    final c = _controller();
+    await c.saveTemplate(_package());
+    final instance = await c.assignTomorrow(c.templates.single.id);
+    await pumpScreen(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => ChallengeInstancePage(instanceId: instance.id),
+              ),
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+      planner: c,
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('cancel-tomorrow')));
+    expect(find.textContaining('choose another package'), findsOneWidget);
+    await _tap(tester, find.text("Cancel tomorrow's package").last);
+    expect(c.instances, isEmpty);
+    expect(c.tomorrowSelection!.isPending, isTrue);
+    expect(find.byType(ChallengeInstancePage), findsNothing);
+    expect(find.text("Tomorrow's package was cancelled"), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    c.dispose();
+  });
+
+  testWidgets('steps no longer gate completion or show a checklist', (
     tester,
   ) async {
     final c = _controller();
@@ -418,20 +590,52 @@ void main() {
     final occurrence = c
         .occurrences(_now)
         .firstWhere((o) => o.item.title == 'Warm-up');
+    // The package's saved steps are still stored, only no longer used.
+    expect(occurrence.item.steps, ['Prepare', 'Move']);
     await pumpScreen(
       tester,
       PlannerTaskPage(occurrence: occurrence),
       planner: c,
     );
+    expect(find.text('1. Prepare'), findsNothing);
     await _tap(tester, find.text('Mark complete'));
-    expect(find.text('Complete every required step first.'), findsOneWidget);
-    expect(c.balance, 0);
-    await _tap(tester, find.text('1. Prepare'));
-    expect(c.balance, 0);
-    await _tap(tester, find.text('2. Move'));
     expect(c.balance, 10);
     expect(c.ledger.length, 1);
     expect(find.text('Mark complete'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    c.dispose();
+  });
+
+  testWidgets('anytime challenge tasks get a box on the schedule', (
+    tester,
+  ) async {
+    final c = _controller();
+    await c.startChallenge(_package());
+    await pumpScreen(tester, LevelUpShell(refresh: _refresh), planner: c);
+    final strip = find.byKey(const ValueKey('anytime-challenges'));
+    expect(strip, findsOneWidget);
+    // Untimed tasks (Warm-up, Stretching) are in the box, not the day list;
+    // the timed Running block stays on the timeline.
+    expect(
+      find.descendant(of: strip, matching: find.text('Warm-up')),
+      findsOneWidget,
+    );
+    expect(find.text('Warm-up'), findsOneWidget);
+    expect(
+      find.descendant(of: strip, matching: find.text('Running')),
+      findsNothing,
+    );
+    final warmup = c
+        .occurrences(_now)
+        .firstWhere((o) => o.item.title == 'Warm-up');
+    await _tap(tester, find.byKey(ValueKey('anytime-complete-${warmup.id}')));
+    expect(
+      c.occurrenceById(warmup.id)!.record.status,
+      CompletionStatus.completed,
+    );
+    expect(c.balance, 10);
+    expect(find.byType(PlannerTaskPage), findsNothing);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     c.dispose();
   });

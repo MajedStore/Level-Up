@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Level Up schedule widget. Refreshed by the app on every planner change;
+     the 30-minute period keeps the "current block" highlight moving. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="140dp"
+    android:minResizeHeight="80dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/schedule_widget_description"
+    android:initialLayout="@layout/widget_schedule_loading"
+    android:previewImage="@drawable/schedule_widget_preview" />

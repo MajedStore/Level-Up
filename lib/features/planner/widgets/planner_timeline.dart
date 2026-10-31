@@ -31,17 +31,38 @@ class PlannerTimeline extends StatefulWidget {
     required this.onOpen,
     required this.onAdd,
     this.header,
+    this.banner,
     this.showChallenges = true,
     this.initialDay,
     this.navigation,
+    this.zoom = 1,
+    this.onZoom,
   });
   final PlannerController controller;
   final ValueChanged<PlannerOccurrence> onOpen;
   final ValueChanged<DateTime> onAdd;
   final Widget? header;
+
+  /// Shown under the header, above the scrolling days. When set, today's
+  /// untimed challenge tasks are left to it rather than listed again.
+  final Widget? banner;
   final bool showChallenges;
   final DateTime? initialDay;
   final PlannerTimelineNavigation? navigation;
+
+  /// Vertical scale: 1 is the overview, larger values spread the hours out so
+  /// times can be read precisely.
+  final double zoom;
+
+  /// When set, pinch and the zoom buttons change [zoom] through it.
+  final ValueChanged<double>? onZoom;
+
+  static const minZoom = 0.5;
+  static const maxZoom = 8.0;
+
+  /// Stops used by the zoom buttons; pinching moves freely between them.
+  static const zoomSteps = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0];
+
   @override
   State<PlannerTimeline> createState() => _PlannerTimelineState();
 }
@@ -64,6 +85,55 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
   bool _initialized = false;
   bool _reanchoring = false;
   Future<void>? _returning;
+
+  /// Pointers on the timeline, for two-finger zoom. A Listener sees them
+  /// without competing with the scroll gesture.
+  final _pointers = <int, Offset>{};
+  double? _pinchDistance;
+  double _pinchZoom = 1;
+
+  /// Viewport height the next zoom keeps fixed: the pinch midpoint, or the
+  /// middle of the view for the buttons.
+  double? _zoomFocus;
+  bool get _pinching => _pinchDistance != null;
+
+  List<Offset> get _pinchPoints => _pointers.values.take(2).toList();
+
+  void _pointerDown(PointerDownEvent event) {
+    _pointers[event.pointer] = event.localPosition;
+    if (widget.onZoom != null && _pointers.length == 2) {
+      final points = _pinchPoints;
+      setState(() {
+        _pinchDistance = math.max(1, (points[0] - points[1]).distance);
+        _pinchZoom = widget.zoom;
+      });
+    }
+  }
+
+  void _pointerMove(PointerMoveEvent event) {
+    if (!_pointers.containsKey(event.pointer)) return;
+    _pointers[event.pointer] = event.localPosition;
+    final base = _pinchDistance;
+    if (base == null || _pointers.length < 2) return;
+    final points = _pinchPoints;
+    _zoomFocus = (points[0].dy + points[1].dy) / 2;
+    final next =
+        ((_pinchZoom * (points[0] - points[1]).distance / base) * 100).round() /
+        100;
+    final zoom = next.clamp(PlannerTimeline.minZoom, PlannerTimeline.maxZoom);
+    if (zoom != widget.zoom) widget.onZoom?.call(zoom.toDouble());
+  }
+
+  void _pointerUp(PointerEvent event) {
+    _pointers.remove(event.pointer);
+    if (_pointers.length < 2 && _pinching) {
+      setState(() {
+        _pinchDistance = null;
+        _zoomFocus = null;
+      });
+    }
+  }
+
   double get _dayHeader => 64 * math.max(1, _scale.clamp(1, 1.5));
   static const _dayBottom = 24.0;
   double get _pinnedHeight => math.max(56, 28 * _scale + 24);
@@ -88,41 +158,88 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
       _clockVisible = widget.navigation?._visible ?? true;
       _scheduleClockTick();
     }
+    if (oldWidget.zoom != widget.zoom) {
+      if (_scroll.hasClients) {
+        final viewport = _scroll.position.viewportDimension;
+        final focus = (_zoomFocus ?? viewport / 2).clamp(0.0, viewport);
+        final anchor = _locate(_scroll.offset + focus);
+        _layouts.clear();
+        final target =
+            _offsetForDay(anchor.$1) +
+            _dayHeader +
+            _layout(anchor.$1).yForMinute(anchor.$2) -
+            focus;
+        // Corrected before this frame's layout, so the time under the
+        // fingers (or mid-view) stays put with no corrective jump.
+        _scroll.position.correctPixels(math.max(0, target));
+      } else {
+        _layouts.clear();
+      }
+    }
     if (oldWidget.controller != widget.controller) {
+      _occurrences.clear();
       oldWidget.controller.removeListener(_changed);
       widget.controller.addListener(_changed);
       _changed();
     }
   }
 
+  /// A day's occurrences do not depend on zoom; caching them separately
+  /// means a pinch only recomputes geometry.
+  final _occurrences = <String, List<PlannerOccurrence>>{};
+
+  List<PlannerOccurrence> _dayOccurrences(DateTime day) =>
+      _occurrences.putIfAbsent(
+        plannerDateKey(day),
+        () => widget.controller
+            .occurrences(day)
+            .where((o) => widget.showChallenges || !o.isChallenge)
+            .where(
+              (o) =>
+                  widget.banner == null ||
+                  !(o.isChallenge &&
+                      o.start == null &&
+                      plannerDateKey(day) ==
+                          plannerDateKey(widget.controller.now)),
+            )
+            .toList(),
+      );
+
   PlannerDayLayout _layout(DateTime day) => _layouts.putIfAbsent(
     plannerDateKey(day),
     () => PlannerDayLayout(
       day,
-      widget.controller
-          .occurrences(day)
-          .where((o) => widget.showChallenges || !o.isChallenge),
+      _dayOccurrences(day),
       textScale: _scale,
+      zoom: widget.zoom,
     ),
   );
+
+  /// Height of one day in the list; also the list's item extent, so list
+  /// positions and these offsets can never disagree.
+  double _dayExtent(DateTime day) =>
+      _dayHeader + _layout(day).height + _extra(day) + _dayBottom;
   double _extra(DateTime day) =>
       _layout(day).unscheduled.length * 96 * math.max(1, _scale);
   double _offsetForDay(DateTime day) {
     final index = plannerDayDistance(_first, day).clamp(0, _count - 1);
     var value = 0.0;
     for (var i = 0; i < index; i++) {
-      final date = plannerAddDays(_first, i);
-      value += _dayHeader + _layout(date).height + _extra(date) + _dayBottom;
+      value += _dayExtent(plannerAddDays(_first, i));
     }
     return value;
   }
 
-  (DateTime, double) _anchor() {
-    var remaining = _scroll.hasClients ? _scroll.offset : 0.0;
+  (DateTime, double) _anchor() =>
+      _locate(_scroll.hasClients ? _scroll.offset : 0.0);
+
+  /// The day and minute at [offset] in the scrolling content.
+  (DateTime, double) _locate(double offset) {
+    var remaining = offset;
     for (var i = 0; i < _count; i++) {
       final day = plannerAddDays(_first, i);
       final layout = _layout(day);
-      final height = _dayHeader + layout.height + _extra(day) + _dayBottom;
+      final height = _dayExtent(day);
       // Accumulated subpixel heights must not label an exactly aligned day
       // header as the preceding date after a long scroll or buffer prepend.
       if (remaining + .01 < height) {
@@ -137,6 +254,7 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
     if (!mounted) return;
     final anchor = _anchor();
     _layouts.clear();
+    _occurrences.clear();
     setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _scroll.hasClients && _returning == null) {
@@ -343,71 +461,142 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
           ),
         ),
       ),
+      ?widget.banner,
       Expanded(
-        child: LayoutBuilder(
-          builder: (context, constraints) => ShaderMask(
-            blendMode: BlendMode.dstIn,
-            shaderCallback: (bounds) => LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: const [
-                Color(0xBDFFFFFF),
-                Colors.white,
-                Colors.white,
-                Color(0xBDFFFFFF),
-              ],
-              stops: [
-                0,
-                math.min(.07, 24 / bounds.height),
-                math.max(.93, 1 - 24 / bounds.height),
-                1,
-              ],
-            ).createShader(bounds),
-            child: CustomScrollView(
-              key: const PageStorageKey('timeline-scroll'),
-              controller: _scroll,
-              scrollCacheExtent: const ScrollCacheExtent.pixels(700),
-              slivers: [
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final day = plannerAddDays(_first, index);
-                      return Column(
-                        key: ValueKey('timeline-day-${plannerDateKey(day)}'),
-                        children: [
-                          _TimelineDay(
-                            layout: _layout(day),
-                            headerHeight: _dayHeader,
-                            now: _clock,
-                            onOpen: widget.onOpen,
-                            onAdd: widget.onAdd,
-                            alternate: index.isEven,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Listener(
+                onPointerDown: _pointerDown,
+                onPointerMove: _pointerMove,
+                onPointerUp: _pointerUp,
+                onPointerCancel: _pointerUp,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => ShaderMask(
+                    blendMode: BlendMode.dstIn,
+                    shaderCallback: (bounds) => LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: const [
+                        Color(0xBDFFFFFF),
+                        Colors.white,
+                        Colors.white,
+                        Color(0xBDFFFFFF),
+                      ],
+                      stops: [
+                        0,
+                        math.min(.07, 24 / bounds.height),
+                        math.max(.93, 1 - 24 / bounds.height),
+                        1,
+                      ],
+                    ).createShader(bounds),
+                    child: CustomScrollView(
+                      key: const PageStorageKey('timeline-scroll'),
+                      controller: _scroll,
+                      physics: _pinching
+                          ? const NeverScrollableScrollPhysics()
+                          : null,
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(700),
+                      slivers: [
+                        // Each day's extent is known up front, so the list
+                        // places days from these heights. It never reuses
+                        // stale positions when zoom changes every height.
+                        SliverVariedExtentList(
+                          itemExtentBuilder: (index, _) => index < _count
+                              ? _dayExtent(plannerAddDays(_first, index))
+                              : null,
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final day = plannerAddDays(_first, index);
+                              return Column(
+                                key: ValueKey(
+                                  'timeline-day-${plannerDateKey(day)}',
+                                ),
+                                children: [
+                                  _TimelineDay(
+                                    layout: _layout(day),
+                                    headerHeight: _dayHeader,
+                                    now: _clock,
+                                    onOpen: widget.onOpen,
+                                    onAdd: widget.onAdd,
+                                    alternate: index.isEven,
+                                    zoom: widget.zoom,
+                                  ),
+                                ],
+                              );
+                            },
+                            childCount: _count,
+                            findChildIndexCallback: (key) {
+                              if (key is! ValueKey<String> ||
+                                  !key.value.startsWith('timeline-day-')) {
+                                return null;
+                              }
+                              final date = DateTime.tryParse(
+                                key.value.substring('timeline-day-'.length),
+                              );
+                              if (date == null) return null;
+                              final index = plannerDayDistance(_first, date);
+                              return index >= 0 && index < _count
+                                  ? index
+                                  : null;
+                            },
                           ),
-                        ],
-                      );
-                    },
-                    childCount: _count,
-                    findChildIndexCallback: (key) {
-                      if (key is! ValueKey<String> ||
-                          !key.value.startsWith('timeline-day-')) {
-                        return null;
-                      }
-                      final date = DateTime.tryParse(
-                        key.value.substring('timeline-day-'.length),
-                      );
-                      if (date == null) return null;
-                      final index = plannerDayDistance(_first, date);
-                      return index >= 0 && index < _count ? index : null;
-                    },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+            if (widget.onZoom case final onZoom?)
+              PositionedDirectional(
+                end: 12,
+                bottom: 12,
+                child: _ZoomControls(zoom: widget.zoom, onZoom: onZoom),
+              ),
+          ],
         ),
       ),
     ],
   );
+}
+
+/// Compact − / + pill floating over the timeline.
+class _ZoomControls extends StatelessWidget {
+  const _ZoomControls({required this.zoom, required this.onZoom});
+  final double zoom;
+  final ValueChanged<double> onZoom;
+
+  @override
+  Widget build(BuildContext context) {
+    const steps = PlannerTimeline.zoomSteps;
+    final lower = steps.lastWhere((z) => z < zoom - .01, orElse: () => zoom);
+    final higher = steps.firstWhere((z) => z > zoom + .01, orElse: () => zoom);
+    return Material(
+      color: context.colors.surfaceContainerHigh,
+      elevation: 3,
+      shadowColor: Colors.black54,
+      borderRadius: BorderRadius.circular(22),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            key: const ValueKey('timeline-zoom-out'),
+            tooltip: context.plannerText('zoomOut'),
+            onPressed: lower < zoom ? () => onZoom(lower) : null,
+            icon: const Icon(Icons.zoom_out_rounded),
+          ),
+          IconButton(
+            key: const ValueKey('timeline-zoom-in'),
+            tooltip: context.plannerText('zoomIn'),
+            onPressed: higher > zoom ? () => onZoom(higher) : null,
+            icon: const Icon(Icons.zoom_in_rounded),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _TimelineDay extends StatelessWidget {
@@ -418,6 +607,7 @@ class _TimelineDay extends StatelessWidget {
     required this.onOpen,
     required this.onAdd,
     required this.alternate,
+    this.zoom = 1,
   });
   final PlannerDayLayout layout;
   final double headerHeight;
@@ -425,157 +615,73 @@ class _TimelineDay extends StatelessWidget {
   final ValueChanged<PlannerOccurrence> onOpen;
   final ValueChanged<DateTime> onAdd;
   final bool alternate;
-  List<Widget> _events(
-    BuildContext context,
-    double available,
-    double gutter,
-    double scale,
-  ) {
-    final columns = math.max(
-      1,
-      (available / (100 * math.min(scale, 1.5))).floor(),
-    );
-    final widgets = <Widget>[];
-    final groups = <int, List<PlannerTimelineEvent>>{};
-    for (final event in layout.events) {
-      (groups[event.overlapGroup] ??= []).add(event);
-    }
-    for (final group in groups.values) {
-      final lanes = group.first.laneCount;
-      final shown = math.min(lanes, columns);
-      final dense = lanes > columns;
-      final overflow = dense
-          ? group.where((e) => e.lane >= shown - 1).toList()
-          : <PlannerTimelineEvent>[];
-      for (final event in group.where((e) => !overflow.contains(e))) {
-        widgets.add(
-          PositionedDirectional(
-            key: ValueKey(
-              'timeline-event-${event.occurrence.id}-${plannerDateKey(layout.day)}',
-            ),
-            start: gutter + event.lane * available / shown,
-            width: available / shown - 5,
-            top: layout.yForMinute(event.startMinute),
-            height:
-                layout.yForMinute(event.endMinute) -
-                layout.yForMinute(event.startMinute) -
-                2,
-            child: _TimelineEventBlock(
-              event: event,
-              day: layout.day,
-              onOpen: onOpen,
-            ),
-          ),
-        );
-      }
-      if (overflow.isNotEmpty) {
-        final from = overflow.map((e) => e.startMinute).reduce(math.min);
-        final to = overflow.map((e) => e.endMinute).reduce(math.max);
-        final names = overflow
-            .map((e) => plannerOccurrenceTitle(context, e.occurrence))
-            .join(', ');
-        widgets.add(
-          PositionedDirectional(
-            key: ValueKey(
-              'timeline-overlap-${plannerDateKey(layout.day)}-${group.first.overlapGroup}',
-            ),
-            start: gutter + (shown - 1) * available / shown,
-            width: available / shown - 5,
-            top: layout.yForMinute(from),
-            height: layout.yForMinute(to) - layout.yForMinute(from) - 2,
-            child: Semantics(
-              button: true,
-              label:
-                  '${context.plannerText('overlaps')}: $names, ${overflow.any((e) => e.occurrence.isChallenge) ? context.plannerText('challengeTask') : context.plannerText('routineTask')}',
-              child: Material(
-                color: context.colors.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(9),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(9),
-                  onTap: () => showModalBottomSheet<void>(
-                    context: context,
-                    showDragHandle: true,
-                    isScrollControlled: true,
-                    builder: (sheet) => SafeArea(
-                      child: DraggableScrollableSheet(
-                        expand: false,
-                        initialChildSize: .5,
-                        builder: (_, scroll) => ListView(
-                          controller: scroll,
-                          padding: const EdgeInsets.all(20),
-                          children: [
-                            Text(
-                              context.plannerText('overlaps'),
-                              style: Theme.of(sheet).textTheme.titleLarge,
-                            ),
-                            for (final event in overflow)
-                              OccurrenceTile(
-                                occurrence: event.occurrence,
-                                onTap: () {
-                                  Navigator.pop(sheet);
-                                  onOpen(event.occurrence);
-                                },
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: LayoutBuilder(
-                      builder: (context, bounds) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.layers_outlined, size: 18),
-                              const SizedBox(width: 4),
-                              Text(
-                                plannerNumber(context, overflow.length),
-                                style: Theme.of(context).textTheme.labelLarge,
-                              ),
-                              if (overflow.any(
-                                (e) => e.occurrence.isChallenge,
-                              )) ...[
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.emoji_events_outlined,
-                                  size: 18,
-                                ),
-                              ],
-                            ],
-                          ),
-                          if (bounds.maxHeight > 110) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              context.plannerText('overlaps'),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelLarge,
-                            ),
-                            const SizedBox(height: 4),
-                            Expanded(
-                              child: Text(
-                                names,
-                                overflow: TextOverflow.fade,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }
-    }
-    return widgets;
+  final double zoom;
+
+  /// Minutes between labelled grid lines, chosen so labels stay about
+  /// 20 px or more apart: every 2 h zoomed out, down to every 5 min at 6.5x.
+  int get _gridStep => zoom >= 6.5
+      ? 5
+      : zoom >= 4
+      ? 10
+      : zoom >= 2.5
+      ? 15
+      : zoom >= 1.5
+      ? 30
+      : zoom >= .8
+      ? 60
+      : 120;
+
+  static String _clockLabel(BuildContext context, int minute) {
+    final arabic = Localizations.localeOf(context).languageCode == 'ar';
+    String two(int n) =>
+        plannerNumber(context, n).padLeft(2, arabic ? '٠' : '0');
+    return '${two(minute ~/ 60 % 24)}:${two(minute % 60)}';
   }
+
+  /// Narrower lanes make overlapping routines unreadable, so a busy day's
+  /// routines scroll sideways instead of being squeezed or collapsed.
+  static const _minLaneWidth = 150.0;
+
+  double _laneMin(double scale) => _minLaneWidth * math.min(scale, 1.5);
+
+  /// Width of the day's routine canvas: the visible width, or wider when an
+  /// overlap needs more lanes than fit.
+  double _canvasWidth(double available, double scale) {
+    var widest = available;
+    for (final event in layout.events) {
+      widest = math.max(widest, event.laneCount * _laneMin(scale));
+    }
+    return widest;
+  }
+
+  /// Routine blocks positioned on the canvas. Overlap groups that fit share
+  /// the visible width; larger groups use fixed-width lanes off-screen.
+  List<Widget> _events(double available, double scale) => [
+    for (final event in layout.events)
+      () {
+        final lanes = event.laneCount;
+        final lane = lanes * _laneMin(scale) <= available
+            ? available / lanes
+            : _laneMin(scale);
+        return PositionedDirectional(
+          key: ValueKey(
+            'timeline-event-${event.occurrence.id}-${plannerDateKey(layout.day)}',
+          ),
+          start: event.lane * lane,
+          width: lane - 5,
+          top: layout.yForMinute(event.startMinute),
+          height:
+              layout.yForMinute(event.endMinute) -
+              layout.yForMinute(event.startMinute) -
+              2,
+          child: _TimelineEventBlock(
+            event: event,
+            day: layout.day,
+            onOpen: onOpen,
+          ),
+        );
+      }(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -626,42 +732,43 @@ class _TimelineDay extends StatelessWidget {
                         ),
                       ),
                     ),
-                    for (var hour = 0; hour <= 24; hour++) ...[
+                    for (
+                      var minute = 0;
+                      minute <= 1440;
+                      minute += _gridStep
+                    ) ...[
                       PositionedDirectional(
                         start: 5,
-                        top: (layout.yForMinute(hour * 60) - 9).clamp(
+                        top: (layout.yForMinute(minute) - 9).clamp(
                           0,
                           layout.height - 20,
                         ),
                         width: gutter - 20,
                         child: ExcludeSemantics(
                           child: Text(
-                            '${plannerNumber(context, hour % 24).padLeft(2, Localizations.localeOf(context).languageCode == 'ar' ? '٠' : '0')}:٠٠'
-                                .replaceAll(
-                                  '٠٠',
-                                  Localizations.localeOf(
-                                            context,
-                                          ).languageCode ==
-                                          'ar'
-                                      ? '٠٠'
-                                      : '00',
-                                ),
+                            _clockLabel(context, minute),
                             maxLines: 1,
                             textAlign: TextAlign.end,
                             style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: context.tokens.muted),
+                                ?.copyWith(
+                                  color: minute % 60 == 0
+                                      ? context.tokens.muted
+                                      : context.tokens.muted.withValues(
+                                          alpha: .6,
+                                        ),
+                                ),
                           ),
                         ),
                       ),
                       PositionedDirectional(
                         start: gutter - 8,
                         end: 16,
-                        top: layout.yForMinute(hour * 60),
+                        top: layout.yForMinute(minute),
                         child: Divider(
                           height: 1,
                           thickness: .5,
                           color: context.colors.outlineVariant.withValues(
-                            alpha: .25,
+                            alpha: minute % 60 == 0 ? .25 : .12,
                           ),
                         ),
                       ),
@@ -676,7 +783,26 @@ class _TimelineDay extends StatelessWidget {
                           style: TextStyle(color: context.tokens.muted),
                         ),
                       ),
-                    ..._events(context, available, gutter, scale),
+                    PositionedDirectional(
+                      start: gutter,
+                      end: 16,
+                      top: 0,
+                      bottom: 0,
+                      child: SingleChildScrollView(
+                        // Its own storage slot: without one it shares the
+                        // vertical list's saved offset and opens scrolled.
+                        key: PageStorageKey(
+                          'timeline-lanes-${plannerDateKey(layout.day)}',
+                        ),
+                        scrollDirection: Axis.horizontal,
+                        clipBehavior: Clip.hardEdge,
+                        child: SizedBox(
+                          width: _canvasWidth(available, scale),
+                          height: layout.height,
+                          child: Stack(children: _events(available, scale)),
+                        ),
+                      ),
+                    ),
                     ValueListenableBuilder<DateTime>(
                       valueListenable: now,
                       builder: (context, current, _) {

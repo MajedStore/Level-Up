@@ -36,6 +36,8 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
         private const val REQUEST_CODE = 90210
 
         private val PROVIDERS = listOf(
+            ScheduleWidgetProvider::class.java,
+            ChallengesWidgetProvider::class.java,
             HabitWidgetProvider::class.java,
             TodayWidgetProvider::class.java,
             StatsWidgetProvider::class.java,
