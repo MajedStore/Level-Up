@@ -1,7 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-    <!-- Account synchronization uses only the authenticated HTTPS API. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Firebase Authentication and Firestore use secure HTTPS connections. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Firebase and AndroidX WorkManager register system connectivity callbacks. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
@@ -21,11 +22,6 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-
-    <!-- androidx.work (pulled in by home_widget) declares ACCESS_NETWORK_STATE for
-         network-constrained jobs. The app is fully offline and enqueues its widget
-         work without constraints, so the permission is never exercised. -->
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
 
     <application
         android:label="Level Up"

@@ -96,6 +96,7 @@ class _PlannerSettingsPageState extends State<PlannerSettingsPage> {
             initialValue: settings.localeCode.startsWith('ar') ? 'ar' : 'en',
             decoration: InputDecoration(
               labelText: context.plannerText('language'),
+              prefixIcon: const Icon(Icons.translate_rounded, size: 20),
             ),
             items: const [
               DropdownMenuItem(value: 'ar', child: Text('العربية')),
@@ -111,68 +112,77 @@ class _PlannerSettingsPageState extends State<PlannerSettingsPage> {
             },
           ),
           PlannerSection(context.plannerText('dailySelection')),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.schedule),
-            title: Text(context.plannerText('selectionDeadline')),
-            trailing: Text(time.format(context)),
-            onTap: () async {
-              final chosen = await showTimePicker(
-                context: context,
-                initialTime: time,
-              );
-              if (chosen != null && context.mounted) {
-                await plannerAction(
-                  context,
-                  () => c.updateSelectionRules(
-                    deadlineMinute: chosen.hour * 60 + chosen.minute,
-                    missedPenalty: c.missedSelectionPenalty,
-                  ),
-                );
-              }
-            },
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.remove_circle_outline),
-            title: Text(context.plannerText('missedSelectionPenalty')),
-            trailing: Text(plannerNumber(context, c.missedSelectionPenalty)),
-            onTap: () => _penalty(c),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            context.plannerText('selectionRulesInfo', {
-              'time': time.format(context),
-              'xp': plannerNumber(context, c.missedSelectionPenalty),
-            }),
+          PlannerGroup(
+            children: [
+              PlannerMenuRow(
+                icon: Icons.schedule_rounded,
+                label: context.plannerText('selectionDeadline'),
+                trailing: Text(time.format(context)),
+                chevron: false,
+                onTap: () async {
+                  final chosen = await showTimePicker(
+                    context: context,
+                    initialTime: time,
+                  );
+                  if (chosen != null && context.mounted) {
+                    await plannerAction(
+                      context,
+                      () => c.updateSelectionRules(
+                        deadlineMinute: chosen.hour * 60 + chosen.minute,
+                        missedPenalty: c.missedSelectionPenalty,
+                      ),
+                    );
+                  }
+                },
+              ),
+              PlannerMenuRow(
+                icon: Icons.remove_circle_outline_rounded,
+                label: context.plannerText('missedSelectionPenalty'),
+                trailing: Text(
+                  plannerNumber(context, c.missedSelectionPenalty),
+                ),
+                chevron: false,
+                onTap: () => _penalty(c),
+              ),
+            ],
           ),
           PlannerSection(context.plannerText('reminderAccess')),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.notifications_outlined),
-            title: Text(context.plannerText('notificationAccess')),
-            onTap: _busy ? null : () => _access(),
+          PlannerGroup(
+            children: [
+              PlannerMenuRow(
+                icon: Icons.notifications_none_rounded,
+                label: context.plannerText('notificationAccess'),
+                onTap: _busy ? null : () => _access(),
+              ),
+              PlannerMenuRow(
+                icon: Icons.alarm_rounded,
+                label: context.plannerText('preciseReminders'),
+                onTap: _busy ? null : () => _access(exact: true),
+              ),
+            ],
           ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.alarm),
-            title: Text(context.plannerText('preciseReminders')),
-            onTap: _busy ? null : () => _access(exact: true),
-          ),
-          if (_busy) const LinearProgressIndicator(),
-          const SizedBox(height: 16),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.tune),
-            title: Text(context.plannerText('moreSettings')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
-              );
-              if (context.mounted) await plannerAction(context, c.reload);
-            },
+          if (_busy)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
+          const SizedBox(height: 24),
+          PlannerGroup(
+            children: [
+              PlannerMenuRow(
+                icon: Icons.tune_rounded,
+                label: context.plannerText('moreSettings'),
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SettingsPage(),
+                    ),
+                  );
+                  if (context.mounted) await plannerAction(context, c.reload);
+                },
+              ),
+            ],
           ),
         ],
       ),

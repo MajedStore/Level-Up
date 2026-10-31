@@ -12,7 +12,12 @@
           "package_name": "com.streak.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "320622699175-hk63bu1k4dp1rst1ahmdav7bul5tac30.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBPHdV3fJwUfcLoceL3gdjrZQHkVUzKU1w"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "320622699175-hk63bu1k4dp1rst1ahmdav7bul5tac30.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

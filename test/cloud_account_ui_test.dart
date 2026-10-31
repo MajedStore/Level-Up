@@ -13,6 +13,7 @@ import 'package:streak/services/cloud_api.dart';
 import 'package:streak/services/cloud_models.dart';
 import 'package:streak/services/cloud_session_store.dart';
 import 'package:streak/services/cloud_sync_controller.dart';
+import 'package:streak/services/google_sign_in_service.dart';
 
 import 'cloud_sync_controller_test.dart'
     show
@@ -68,6 +69,8 @@ Future<void> _open(
 
 Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
+  // The scroll applies on the next frame; tap after it lands.
+  await tester.pump();
   await tester.tap(finder);
   await tester.pumpAndSettle();
 }
@@ -79,6 +82,37 @@ class _DelayedLoginApi extends FakeCloudApi {
     events.add('login');
     return loginResult.future;
   }
+}
+
+class _GoogleConfigurationFailure implements GoogleIdTokenProvider {
+  @override
+  bool get configured => true;
+
+  @override
+  Future<String> authenticate() async {
+    throw const GoogleSignInFailure('google_configuration');
+  }
+}
+
+class _GoogleTokenProvider implements GoogleIdTokenProvider {
+  @override
+  bool get configured => true;
+
+  @override
+  Future<String> authenticate() async => 'provider-id-token';
+}
+
+/// Mirrors FirebaseCloudApi: the reset is finished from the emailed link.
+class _LinkResetApi extends FakeCloudApi
+    implements CloudPasswordResetEmailFlow {
+  @override
+  bool get passwordResetCompletesInEmail => true;
+}
+
+class _RejectedGoogleCredentialApi extends FakeCloudApi {
+  @override
+  Future<CloudSession> google(String idToken) async =>
+      throw const CloudApiException('google_credential_rejected');
 }
 
 void main() {
@@ -115,15 +149,16 @@ void main() {
   );
 
   testWidgets(
-    'sign-in validates inputs and failed network restore keeps guest untouched',
+    'sign-in validates inputs and failed network restore remains recoverable',
     (tester) async {
       final api = FakeCloudApi()
         ..getError = const CloudApiException('network_error');
       final cache = MemoryCloudCache();
+      final sessions = MemorySessions();
       final c = CloudSyncController(
         api: api,
         cache: cache,
-        sessionStore: MemorySessions(),
+        sessionStore: sessions,
       );
       await c.initialize();
       await _open(tester, c);
@@ -144,7 +179,92 @@ void main() {
         findsOneWidget,
       );
       expect(cache.events, isEmpty);
-      expect(c.user, isNull);
+      expect(c.user?.id, 'a');
+      expect(sessions.value?.ownerId, 'a');
+      expect(cache.value.ownerId, isNull);
+      expect(find.text('a@example.com'), findsOneWidget);
+      // Synchronisation is automatic; no manual sync control is offered.
+      expect(find.text('Sync now'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    },
+  );
+
+  testWidgets(
+    'registration with a denied Firestore restore keeps a usable signed-in page',
+    (tester) async {
+      final api = FakeCloudApi()
+        ..getError = const CloudApiException('firestore_permission_denied');
+      final cache = MemoryCloudCache();
+      final sessions = MemorySessions();
+      final c = CloudSyncController(
+        api: api,
+        cache: cache,
+        sessionStore: sessions,
+      );
+      await c.initialize();
+      await _open(tester, c);
+      await _tap(tester, find.text('Create account'));
+      await tester.enterText(
+        find.byKey(const ValueKey('cloud-email')),
+        'a@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('cloud-password')),
+        'A-long-password-123',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('cloud-confirm-password')),
+        'A-long-password-123',
+      );
+      await _tap(tester, find.byKey(const ValueKey('cloud-submit')));
+      expect(c.user?.id, 'a');
+      expect(sessions.value?.ownerId, 'a');
+      expect(cache.value.ownerId, isNull);
+      expect(find.byType(Scaffold), findsOneWidget);
+      expect(find.text('a@example.com'), findsOneWidget);
+      expect(find.textContaining('Firestore denied'), findsOneWidget);
+      // Synchronisation is automatic; no manual sync control is offered.
+      expect(find.text('Sync now'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    },
+  );
+
+  testWidgets(
+    'Firestore unauthenticated response keeps the signed-in account visible',
+    (tester) async {
+      final api = FakeCloudApi()
+        ..getError = const CloudApiException('firestore_unauthenticated');
+      final c = CloudSyncController(
+        api: api,
+        cache: MemoryCloudCache(),
+        sessionStore: MemorySessions(),
+      );
+      await c.initialize();
+      await _open(tester, c);
+      await tester.enterText(
+        find.byKey(const ValueKey('cloud-email')),
+        'a@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('cloud-password')),
+        'password',
+      );
+      await _tap(tester, find.byKey(const ValueKey('cloud-submit')));
+
+      expect(c.user?.id, 'a');
+      expect(c.status, CloudSyncStatus.rejected);
+      expect(find.text('a@example.com'), findsOneWidget);
+      expect(
+        find.textContaining('Your account is still signed in'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('cloud-email')), findsNothing);
+      // Synchronisation is automatic; no manual sync control is offered.
+      expect(find.text('Sync now'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       c.dispose();
@@ -173,6 +293,58 @@ void main() {
       c.dispose();
     },
   );
+
+  testWidgets('Google OAuth failure explains the external client allowlist', (
+    tester,
+  ) async {
+    final c = CloudSyncController(
+      api: FakeCloudApi(),
+      cache: MemoryCloudCache(),
+      sessionStore: MemorySessions(),
+      googleIdTokenProvider: _GoogleConfigurationFailure(),
+    );
+    await c.initialize();
+    await _open(tester, c);
+    await _tap(tester, find.byKey(const ValueKey('cloud-google-submit')));
+
+    expect(
+      find.textContaining(
+        'add the existing Android OAuth client under “Safelist client IDs from external projects.”',
+      ),
+      findsOneWidget,
+    );
+    expect(c.user, isNull);
+    expect(c.errorCode, 'google_configuration');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    c.dispose();
+  });
+
+  testWidgets('Firebase credential rejection is distinct from password errors', (
+    tester,
+  ) async {
+    final c = CloudSyncController(
+      api: _RejectedGoogleCredentialApi(),
+      cache: MemoryCloudCache(),
+      sessionStore: MemorySessions(),
+      googleIdTokenProvider: _GoogleTokenProvider(),
+    );
+    await c.initialize();
+    await _open(tester, c);
+    await _tap(tester, find.byKey(const ValueKey('cloud-google-submit')));
+
+    expect(c.errorCode, 'google_credential_rejected');
+    expect(
+      find.textContaining(
+        'Firebase Authentication rejected the Google credential (invalid-credential)',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Check your email and password.'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    c.dispose();
+  });
 
   testWidgets(
     'password-reset form gives conditional delivery status without exposing account state',
@@ -208,6 +380,55 @@ void main() {
       c.dispose();
     },
   );
+
+  for (final locale in ['en', 'ar']) {
+    testWidgets(
+      'Firebase reset email is requested in the app language ($locale) and can be resent',
+      (tester) async {
+        final api = _LinkResetApi();
+        final c = CloudSyncController(
+          api: api,
+          cache: MemoryCloudCache(),
+          sessionStore: MemorySessions(),
+        );
+        await c.initialize();
+        await _open(tester, c, locale: locale);
+        await _tap(
+          tester,
+          find.text(plannerTextForLocale(locale, 'cloudForgotPassword')),
+        );
+        expect(
+          find.text(plannerTextForLocale(locale, 'cloudResetLinkRequestInfo')),
+          findsOneWidget,
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('cloud-email')),
+          'a@example.com',
+        );
+        await _tap(tester, find.byKey(const ValueKey('cloud-reset-submit')));
+        expect(api.resetRequests, ['a@example.com']);
+        expect(api.resetLanguages, [locale]);
+        // The link flow never asks for a code or a new password in the app.
+        expect(find.byKey(const ValueKey('cloud-reset-code')), findsNothing);
+        expect(find.byKey(const ValueKey('cloud-password')), findsNothing);
+        expect(
+          find.text(plannerTextForLocale(locale, 'cloudResetLinkSent')),
+          findsOneWidget,
+        );
+
+        await _tap(tester, find.byKey(const ValueKey('cloud-reset-resend')));
+        expect(api.resetRequests, ['a@example.com', 'a@example.com']);
+        expect(api.resetLanguages, [locale, locale]);
+
+        await _tap(tester, find.byKey(const ValueKey('cloud-reset-return')));
+        expect(find.byKey(const ValueKey('cloud-submit')), findsOneWidget);
+        expect(find.byKey(const ValueKey('cloud-reset-resend')), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        c.dispose();
+      },
+    );
+  }
 
   testWidgets(
     'Arabic registration form fits 320px at 2x with Cairo and password rule',

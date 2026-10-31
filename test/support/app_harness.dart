@@ -29,6 +29,7 @@ import 'package:streak/features/todos/state/todos_controller.dart';
 import 'package:streak/l10n/app_localizations.dart';
 import 'package:streak/services/home_widget_service.dart';
 import 'package:streak/services/todos_widget_service.dart';
+import 'package:streak/services/cloud_sync_controller.dart';
 
 const _pathProvider = MethodChannel('plugins.flutter.io/path_provider');
 
@@ -183,6 +184,7 @@ Future<void> pumpScreen(
   ThemeMode themeMode = ThemeMode.dark,
   double textScale = 1,
   PlannerController? planner,
+  CloudSyncController? cloud,
 }) async {
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 2.75;
@@ -204,6 +206,7 @@ Future<void> pumpScreen(
           ChangeNotifierProvider.value(value: planner)
         else
           ChangeNotifierProvider(create: (_) => PlannerController()),
+        if (cloud != null) ChangeNotifierProvider.value(value: cloud),
         ChangeNotifierProvider(create: (_) => CategoriesController()),
         ChangeNotifierProvider(create: (_) => NotesController()),
         ChangeNotifierProvider(create: (_) => TodosController()),

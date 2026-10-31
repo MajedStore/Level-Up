@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:streak/services/google_sign_in_service.dart';
@@ -41,6 +43,8 @@ void main() {
   const clientId = '123-valid-web.apps.googleusercontent.com';
 
   test('missing or malformed Web client ID fails before provider UI', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     for (final value in ['', 'not-a-web-client']) {
       final gateway = _GoogleGateway();
       final service = GoogleSignInService(
@@ -58,6 +62,41 @@ void main() {
       expect(gateway.events, isEmpty);
     }
   });
+
+  test(
+    'Android defaults to the Web client paired with the external Android client',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final gateway = _GoogleGateway();
+      final service = GoogleSignInService(gateway: gateway);
+
+      expect(service.configured, isTrue);
+      expect(await service.authenticate(), gateway.token);
+      expect(
+        gateway.clientId,
+        '38989698072-c3s590e64bstmeh7d65vrd4luu0452d6.apps.googleusercontent.com',
+      );
+      expect(gateway.events, ['initialize', 'sign-out', 'authenticate']);
+    },
+  );
+
+  test(
+    'Android accepts an explicit same-project Web client override',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final gateway = _GoogleGateway();
+      final service = GoogleSignInService(
+        serverClientId: clientId,
+        gateway: gateway,
+      );
+
+      expect(service.configured, isTrue);
+      expect(await service.authenticate(), gateway.token);
+      expect(gateway.clientId, clientId);
+    },
+  );
 
   test(
     'one initialization, fresh provider choice for every explicit sign-in',
@@ -132,6 +171,25 @@ void main() {
         );
       }
       final gateway = _GoogleGateway()..token = null;
+      final service = GoogleSignInService(
+        serverClientId: clientId,
+        gateway: gateway,
+      );
+      await expectLater(
+        service.authenticate(),
+        throwsA(_failure('google_configuration')),
+      );
+    },
+  );
+
+  test(
+    'Google developer console error is reported as configuration failure',
+    () async {
+      final gateway = _GoogleGateway()
+        ..error = const GoogleSignInException(
+          code: GoogleSignInExceptionCode.unknownError,
+          description: '[28444] Developer console is not set up correctly.',
+        );
       final service = GoogleSignInService(
         serverClientId: clientId,
         gateway: gateway,

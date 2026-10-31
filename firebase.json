@@ -1,1 +1,24 @@
-{"functions":[{"source":"functions","codebase":"levelup"}],"firestore":{"rules":"firestore.rules"},"flutter":{"platforms":{"android":{"default":{"projectId":"level-up-cf52d","appId":"1:320622699175:android:d8c2057dc3355e0f03f182","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"level-up-cf52d","configurations":{"android":"1:320622699175:android:d8c2057dc3355e0f03f182"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "level-up-cf52d",
+          "appId": "1:320622699175:android:d8c2057dc3355e0f03f182",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "level-up-cf52d",
+          "configurations": {
+            "android": "1:320622699175:android:d8c2057dc3355e0f03f182"
+          }
+        }
+      }
+    }
+  }
+}

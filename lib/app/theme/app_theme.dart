@@ -96,6 +96,45 @@ class AppTheme {
     );
   }
 
+  /// Filled, rounded fields with an accent underline on focus: the sign-in
+  /// screen style, shared by every form. Underline borders keep the floating
+  /// label inside the filled box.
+  static InputDecorationThemeData _fields(ColorScheme scheme) {
+    UnderlineInputBorder edge([Color? color, double width = 1]) =>
+        UnderlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: color == null
+              ? BorderSide.none
+              : BorderSide(color: color, width: width),
+        );
+    return InputDecorationThemeData(
+      filled: true,
+      fillColor: scheme.surfaceContainerHigh,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: edge(),
+      enabledBorder: edge(),
+      disabledBorder: edge(),
+      focusedBorder: edge(scheme.primary, 2),
+      errorBorder: edge(scheme.error),
+      focusedErrorBorder: edge(scheme.error, 2),
+      helperMaxLines: 4,
+      errorMaxLines: 4,
+    );
+  }
+
+  static ButtonStyle _button(String font) => ButtonStyle(
+    minimumSize: const WidgetStatePropertyAll(Size(64, 50)),
+    padding: const WidgetStatePropertyAll(
+      EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    ),
+    shape: WidgetStatePropertyAll(
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    textStyle: WidgetStatePropertyAll(
+      TextStyle(fontFamily: font, fontSize: 15, fontWeight: FontWeight.w600),
+    ),
+  );
+
   static ButtonStyle _expressButton(Color foreground) => ButtonStyle(
     shape: const WidgetStatePropertyAll(StadiumBorder()),
     padding: const WidgetStatePropertyAll(
@@ -288,9 +327,57 @@ class AppTheme {
         foregroundColor: scheme.onSurface,
         titleTextStyle: TextStyle(
           fontFamily: font,
-          fontSize: 26,
+          fontSize: 22,
           fontWeight: FontWeight.w800,
           color: scheme.onSurface,
+        ),
+      ),
+      inputDecorationTheme: _fields(scheme),
+      filledButtonTheme: FilledButtonThemeData(style: _button(font)),
+      // Secondary actions use the sign-in screen's Google button look: a
+      // filled tonal surface with a hairline edge and an accent icon.
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: _button(font).copyWith(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? scheme.surfaceContainerHigh.withValues(alpha: .5)
+                : scheme.surfaceContainerHigh,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? scheme.onSurface.withValues(alpha: .38)
+                : scheme.onSurface,
+          ),
+          iconColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? scheme.onSurface.withValues(alpha: .38)
+                : scheme.primary,
+          ),
+          side: WidgetStatePropertyAll(
+            BorderSide(color: scheme.outlineVariant),
+          ),
+        ),
+      ),
+      // Expandable rows live inside rounded groups; edge lines would cut
+      // across the group surface.
+      expansionTileTheme: const ExpansionTileThemeData(
+        shape: Border(),
+        collapsedShape: Border(),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(48, 46)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          side: WidgetStatePropertyAll(
+            BorderSide(color: scheme.outlineVariant),
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? scheme.primary.withValues(alpha: .2)
+                : scheme.surfaceContainerHigh,
+          ),
         ),
       ),
       cardTheme: CardThemeData(

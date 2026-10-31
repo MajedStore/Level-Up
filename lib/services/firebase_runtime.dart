@@ -15,8 +15,12 @@ class FirebaseRuntime {
   final String? errorCode;
 
   static Future<FirebaseRuntime> initialize() async {
-    final options = DefaultFirebaseOptions.currentPlatform;
-    if (options == null) {
+    late final FirebaseOptions options;
+    try {
+      options = DefaultFirebaseOptions.currentPlatform;
+    } on UnsupportedError {
+      // FlutterFire's generated getter is non-nullable. It signals a platform
+      // without generated options by throwing instead of returning null.
       return const FirebaseRuntime._(ready: false, errorCode: 'unconfigured');
     }
     try {
@@ -25,12 +29,18 @@ class FirebaseRuntime {
       }
       await _activateAppCheck();
       return const FirebaseRuntime._(ready: true);
-    } on FirebaseException catch (error) {
+    } on FirebaseException catch (error, stackTrace) {
       // Firebase errors can include project-specific data. Keep logs useful
       // without exposing configuration or credentials.
-      debugPrint('Firebase initialization failed: ${error.code}');
+      debugPrint(
+        'Firebase initialization failed: plugin=${error.plugin} '
+        'code=${error.code} message=${error.message}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
       return FirebaseRuntime._(ready: false, errorCode: error.code);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Firebase initialization failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       return const FirebaseRuntime._(
         ready: false,
         errorCode: 'initialization_failed',
@@ -52,10 +62,14 @@ class FirebaseRuntime {
             ? const AndroidDebugProvider()
             : const AndroidPlayIntegrityProvider(),
       );
-    } on FirebaseException catch (error) {
-      // Authentication may still work while App Check is being enrolled. The
-      // protected callable rejects sync until attestation is configured.
-      debugPrint('Firebase App Check unavailable: ${error.code}');
+    } on FirebaseException catch (error, stackTrace) {
+      // Authentication and local use can continue. Firestore enforcement may
+      // reject cloud requests until App Check is configured for this app.
+      debugPrint(
+        'Firebase App Check unavailable: plugin=${error.plugin} '
+        'code=${error.code} message=${error.message}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 }

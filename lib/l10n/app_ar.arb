@@ -2096,7 +2096,7 @@
   "planner_cloudResetCode": "رمز إعادة التعيين",
   "planner_cloudResetRequestInfo": "أدخل بريدك الإلكتروني وسنرسل رمز إعادة تعيين لمرة واحدة إذا كانت استعادة كلمة المرور متاحة لهذا الحساب.",
   "planner_cloudResetCodeInfo": "أدخل الرمز من بريدك الإلكتروني واختر كلمة مرور جديدة.",
-  "planner_cloudResetLinkInfo": "تحقّق من بريدك الإلكتروني واتبع رابط إعادة تعيين كلمة المرور، ثم عُد إلى هنا عند الانتهاء.",
+  "planner_cloudResetLinkInfo": "افتح الرابط في البريد الإلكتروني لاختيار كلمة مرور جديدة، ثم سجّل الدخول هنا. تحقّق من مجلد الرسائل غير المرغوب فيها إذا لم تصلك الرسالة.",
   "planner_cloudResetLinkSent": "إذا كان الحساب قابلًا للاستعادة، فقد أُرسل رابط لإعادة تعيين كلمة المرور.",
   "planner_cloudReturnToSignIn": "العودة إلى تسجيل الدخول",
   "planner_cloudResetSent": "إذا كانت الاستعادة وخدمة الإرسال متاحتين، فتحقّق من بريدك الإلكتروني للحصول على رمز إعادة التعيين.",
@@ -2107,7 +2107,15 @@
   "planner_cloudGoogleLink": "ربط Google",
   "planner_cloudGoogleCanceled": "أُلغي تسجيل الدخول باستخدام Google.",
   "planner_cloudGoogleUnavailable": "لم يُهيأ تسجيل الدخول باستخدام Google لهذا الإصدار.",
-  "planner_cloudGoogleConfiguration": "تسجيل الدخول باستخدام Google غير متاح. حاول مجددًا لاحقًا.",
+  "planner_cloudGoogleProviderDisabled": "تسجيل الدخول باستخدام Google معطّل في مصادقة Firebase. فعّل Google من Firebase Console ضمن Authentication ثم Sign-in method.",
+  "planner_cloudEmailProviderDisabled": "تسجيل الدخول بالبريد الإلكتروني وكلمة المرور معطّل في Firebase Authentication. فعّل Email/Password من Firebase Console ضمن Authentication ثم Sign-in method.",
+  "planner_cloudFirebaseConfiguration": "رفض Firebase إعداد هذا التطبيق. تحقق من أن التطبيق المثبّت وملف google-services.json يستخدمان تطبيق Android نفسه في Firebase.",
+  "planner_cloudAccountDisabled": "تم تعطيل حساب Firebase هذا. تواصل مع مسؤول التطبيق.",
+  "planner_cloudFirestorePermissionDenied": "رفض Firestore وصول هذا الحساب. تحقق من القواعد المنشورة ومسار مستند المستخدم المسجّل.",
+  "planner_cloudFirestoreUnauthenticated": "تعذر على Firestore التحقق من هذا الطلب. ما زال حسابك مسجّلًا؛ أعد محاولة المزامنة. إذا استمرت المشكلة، فتحقق من الاتصال وإعدادات Firebase.",
+  "planner_cloudFirestorePrecondition": "رفض Firestore العملية بسبب شرط مسبق في قاعدة البيانات. تحقق من إعداد قاعدة البيانات والقواعد المنشورة.",
+  "planner_cloudGoogleConfiguration": "رفض Firebase بيانات تسجيل الدخول إلى Google. في Firebase Console، افتح Authentication ثم Sign-in method ثم Google، وأضف عميل OAuth الحالي لنظام Android ضمن قائمة العملاء المسموح بهم من المشاريع الخارجية. استخدم عميل الويب من مشروع Google Cloud نفسه كمعرّف عميل الخادم. يظل تسجيل الدخول بالبريد الإلكتروني وكلمة المرور متاحًا.",
+  "planner_cloudGoogleCredentialRejected": "تم اختيار حساب Google واسترجاع رمز الهوية، لكن Firebase Authentication رفض بيانات Google (invalid-credential). هذه المشكلة منفصلة عن بريدك الإلكتروني وكلمة مرورك. تحقّق من معرّفات OAuth المقبولة لدى مزوّد Google ومن جمهور الرمز.",
   "planner_cloudGoogleLinkRequired": "سجّل الدخول بكلمة مرورك أولًا، ثم اربط Google من حسابك.",
   "planner_cloudGoogleEmailMismatch": "اختر حساب Google الذي يحمل البريد الإلكتروني نفسه.",
   "planner_cloudGoogleAlreadyLinked": "حساب Google هذا مرتبط بحساب آخر بالفعل.",
@@ -2147,5 +2155,18 @@
   },
   "planner_cloudExportDraft": "تصدير المسودة المحلية",
   "planner_cloudPasswordRule": "استخدم عبارة مرور من ١٢ حرفًا على الأقل، واختصرها إذا كانت طويلة جدًا.",
-  "planner_cloudQueueFull": "زامن تغييراتك المعلقة أو صدّرها قبل إضافة المزيد. تبقى تغييراتك الحالية محفوظة."
+  "planner_cloudQueueFull": "زامن تغييراتك المعلقة أو صدّرها قبل إضافة المزيد. تبقى تغييراتك الحالية محفوظة.",
+  "planner_authOr": "أو",
+  "planner_levelShort": "المستوى {level}",
+  "@planner_levelShort": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_cloudResetLinkRequestInfo": "أدخل البريد الإلكتروني لحسابك وسنرسل إليك رابطًا لاختيار كلمة مرور جديدة.",
+  "planner_cloudResendLink": "إعادة إرسال الرسالة",
+  "planner_cloudContinueWithoutAccount": "المتابعة بدون تسجيل الدخول",
+  "planner_cloudGuest": "غير مسجّل الدخول"
 }

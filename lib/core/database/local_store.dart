@@ -530,7 +530,7 @@ class LocalStore {
   ///
   /// Device preferences, backup credentials, local change journals and the
   /// planner state intentionally stay out of this payload. Planner/XP data is
-  /// synchronized by the separately validated callable transition path.
+  /// synchronized in the authenticated user's Firestore planner transaction.
   static Map<String, dynamic> firebasePrivateSnapshot() => {
     'habits': _habits.toMap(),
     'categories': _categories.toMap(),
@@ -541,7 +541,7 @@ class LocalStore {
   };
 
   /// Replaces only account-owned, non-planner records received from the
-  /// Firebase callable. This never imports device settings or planner state.
+  /// Firestore listener. This never imports device settings or planner state.
   static Future<void> replaceFirebasePrivateData(
     Map<String, dynamic> snapshot,
   ) async {

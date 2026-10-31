@@ -234,6 +234,7 @@ class NativeCloudPlannerCache implements CloudPlannerCache {
 
   /// Run before providers, folder import or background-triggering initialization.
   /// A missing/mismatched secure session never exposes the last account cache.
+  @override
   Future<void> guardSession(String? secureOwnerId) =>
       _bridge.withLease((lease) async {
         await _recoverSwitch(lease);
@@ -429,6 +430,10 @@ class NativeCloudPlannerCache implements CloudPlannerCache {
   @override
   Future<void> signOut() => _bridge.withLease((lease) async {
     final cache = await _capture(lease);
+    // If Firebase authentication succeeded but the first Firestore restore
+    // has not, the active planner is still a guest draft. Signing out of that
+    // pending Firebase session must leave the guest's data untouched.
+    if (cache.ownerId == null) return;
     await _beforeIsolation?.call();
     if (cache.ownerId != null) await _saveArchive(lease, cache.ownerId!);
     final settings = _settings;

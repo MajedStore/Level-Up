@@ -42,6 +42,10 @@ String _plannerText(AppLocalizations l, String key, Map<String, String> args) {
     'cloudResetRequestInfo' => l.planner_cloudResetRequestInfo,
     'cloudResetCodeInfo' => l.planner_cloudResetCodeInfo,
     'cloudResetLinkInfo' => l.planner_cloudResetLinkInfo,
+    'cloudResetLinkRequestInfo' => l.planner_cloudResetLinkRequestInfo,
+    'cloudResendLink' => l.planner_cloudResendLink,
+    'cloudContinueWithoutAccount' => l.planner_cloudContinueWithoutAccount,
+    'cloudGuest' => l.planner_cloudGuest,
     'cloudResetLinkSent' => l.planner_cloudResetLinkSent,
     'cloudReturnToSignIn' => l.planner_cloudReturnToSignIn,
     'cloudResetSent' => l.planner_cloudResetSent,
@@ -53,6 +57,8 @@ String _plannerText(AppLocalizations l, String key, Map<String, String> args) {
     'cloudGoogleCanceled' => l.planner_cloudGoogleCanceled,
     'cloudGoogleUnavailable' => l.planner_cloudGoogleUnavailable,
     'cloudGoogleConfiguration' => l.planner_cloudGoogleConfiguration,
+    'cloudGoogleCredentialRejected' => l.planner_cloudGoogleCredentialRejected,
+    'cloudGoogleProviderDisabled' => l.planner_cloudGoogleProviderDisabled,
     'cloudGoogleLinkRequired' => l.planner_cloudGoogleLinkRequired,
     'cloudGoogleEmailMismatch' => l.planner_cloudGoogleEmailMismatch,
     'cloudGoogleAlreadyLinked' => l.planner_cloudGoogleAlreadyLinked,
@@ -70,9 +76,16 @@ String _plannerText(AppLocalizations l, String key, Map<String, String> args) {
     'cloudRestoreCloud' => l.planner_cloudRestoreCloud,
     'cloudRestoreInfo' => l.planner_cloudRestoreInfo,
     'cloudSessionExpired' => l.planner_cloudSessionExpired,
+    'cloudFirestorePermissionDenied' =>
+      l.planner_cloudFirestorePermissionDenied,
+    'cloudFirestoreUnauthenticated' => l.planner_cloudFirestoreUnauthenticated,
+    'cloudFirestorePrecondition' => l.planner_cloudFirestorePrecondition,
     'cloudNetworkError' => l.planner_cloudNetworkError,
     'cloudInvalidCredentials' => l.planner_cloudInvalidCredentials,
     'cloudEmailExists' => l.planner_cloudEmailExists,
+    'cloudEmailProviderDisabled' => l.planner_cloudEmailProviderDisabled,
+    'cloudAccountDisabled' => l.planner_cloudAccountDisabled,
+    'cloudFirebaseConfiguration' => l.planner_cloudFirebaseConfiguration,
     'cloudInvalidEmail' => l.planner_cloudInvalidEmail,
     'cloudInvalidPassword' => l.planner_cloudInvalidPassword,
     'cloudAuthFailed' => l.planner_cloudAuthFailed,
@@ -263,6 +276,8 @@ String _plannerText(AppLocalizations l, String key, Map<String, String> args) {
     'noXpHistory' => l.planner_noXpHistory,
     'nextLevelXp' => l.planner_nextLevelXp(args['xp'] ?? ''),
     'levelXp' => l.planner_levelXp(args['level'] ?? '', args['xp'] ?? ''),
+    'levelShort' => l.planner_levelShort(args['level'] ?? ''),
+    'authOr' => l.planner_authOr,
     'habitFocusTools' => l.planner_habitFocusTools,
     'reminderAccess' => l.planner_reminderAccess,
     'notificationAccess' => l.planner_notificationAccess,
@@ -569,10 +584,17 @@ String plannerLocalDate(
   BuildContext context,
   DateTime day, {
   bool weekday = false,
+  bool compact = false,
 }) {
-  final text = (weekday ? DateFormat.yMMMMEEEEd : DateFormat.yMMMd)(
-    Localizations.localeOf(context).toLanguageTag(),
-  ).format(day);
+  final text =
+      (compact
+              ? DateFormat.MMMEd
+              : weekday
+              ? DateFormat.yMMMMEEEEd
+              : DateFormat.yMMMd)(
+            Localizations.localeOf(context).toLanguageTag(),
+          )
+          .format(day);
   return Localizations.localeOf(context).languageCode == 'ar'
       ? _plannerArabicDigits(text)
       : text;

@@ -6,37 +6,206 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
-    // A profile is written only by trusted server code. It may contain only
-    // account metadata, never an authorization substitute.
+    function validMutationId(mutationId) {
+      return mutationId is string &&
+        mutationId.matches('^[A-Za-z0-9_-]{1,128}$');
+    }
+
+    function validHash(value) {
+      return value is string && value.matches('^[a-f0-9]{64}$');
+    }
+
+    function validSettings(settings) {
+      return settings is map &&
+        settings.keys().hasOnly(['locale']) &&
+        settings.keys().hasAll(['locale']) &&
+        settings.locale in ['en', 'ar'];
+    }
+
+    function validPlannerState(state) {
+      return state is map &&
+        state.keys().hasOnly([
+          'schemaVersion', 'items', 'overrides', 'exclusions', 'records',
+          'instances', 'ledger', 'achievements', 'reminders', 'templates',
+          'templatesInitialized', 'categories', 'selections',
+          'selectionDeadlineMinute', 'missedSelectionPenalty', 'lastObservedAt'
+        ]) &&
+        state.keys().hasAll([
+          'schemaVersion', 'items', 'overrides', 'exclusions', 'records',
+          'instances', 'ledger', 'achievements', 'reminders', 'templates',
+          'templatesInitialized', 'categories', 'selections',
+          'selectionDeadlineMinute', 'missedSelectionPenalty', 'lastObservedAt'
+        ]) &&
+        state.schemaVersion is int && state.schemaVersion >= 1 &&
+        state.schemaVersion <= 4 &&
+        state.items is list && state.items.size() <= 5000 &&
+        state.overrides is map && state.overrides.size() <= 20000 &&
+        state.exclusions is list && state.exclusions.size() <= 20000 &&
+        state.records is map && state.records.size() <= 20000 &&
+        state.instances is list && state.instances.size() <= 5000 &&
+        state.ledger is list && state.ledger.size() <= 30000 &&
+        state.achievements is list && state.achievements.size() <= 100 &&
+        state.reminders is map && state.reminders.size() <= 20000 &&
+        state.templates is list && state.templates.size() <= 1000 &&
+        state.templatesInitialized is bool &&
+        state.categories is list && state.categories.size() <= 1000 &&
+        state.selections is list && state.selections.size() <= 20000 &&
+        state.selectionDeadlineMinute is int &&
+        state.selectionDeadlineMinute >= 0 &&
+        state.selectionDeadlineMinute < 1440 &&
+        state.missedSelectionPenalty is int &&
+        state.missedSelectionPenalty >= 0 &&
+        state.missedSelectionPenalty <= 1000000 &&
+        (state.lastObservedAt == null || state.lastObservedAt is string);
+    }
+
+    function validPrivateData(data) {
+      return data is map &&
+        data.keys().hasOnly([
+          'habits', 'categories', 'notes', 'focus', 'todos', 'todoTags'
+        ]) &&
+        data.keys().hasAll([
+          'habits', 'categories', 'notes', 'focus', 'todos', 'todoTags'
+        ]) &&
+        data.habits is map && data.categories is map &&
+        data.notes is map && data.focus is map && data.todos is map &&
+        data.todoTags is map &&
+        data.habits.size() <= 20000 && data.categories.size() <= 20000 &&
+        data.notes.size() <= 20000 && data.focus.size() <= 20000 &&
+        data.todos.size() <= 20000 && data.todoTags.size() <= 20000;
+    }
+
+    function validPlannerEnvelope(data) {
+      return data.keys().hasOnly([
+          'schemaVersion', 'revision', 'state', 'settings', 'timeZone',
+          'lastMutationId', 'updatedAt'
+        ]) &&
+        data.keys().hasAll([
+          'schemaVersion', 'revision', 'state', 'settings', 'timeZone',
+          'lastMutationId', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 && data.revision is int &&
+        data.revision > 0 && validPlannerState(data.state) &&
+        validSettings(data.settings) && data.timeZone is string &&
+        data.timeZone.size() > 0 && data.timeZone.size() <= 100 &&
+        validMutationId(data.lastMutationId) &&
+        data.updatedAt == request.time;
+    }
+
+    function validPrivateEnvelope(data) {
+      return data.keys().hasOnly([
+          'schemaVersion', 'revision', 'data', 'lastMutationId', 'updatedAt'
+        ]) &&
+        data.keys().hasAll([
+          'schemaVersion', 'revision', 'data', 'lastMutationId', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 && data.revision is int &&
+        data.revision > 0 && validPrivateData(data.data) &&
+        validMutationId(data.lastMutationId) &&
+        data.updatedAt == request.time;
+    }
+
+    function plannerPairAfter(userId, data) {
+      let mutationPath = /databases/$(database)/documents/users/$(userId)/planner/state/mutations/$(data.lastMutationId);
+      return existsAfter(mutationPath) &&
+        getAfter(mutationPath).data.revision == data.revision &&
+        getAfter(mutationPath).data.baseRevision == data.revision - 1 &&
+        getAfter(mutationPath).data.createdAt == request.time &&
+        validHash(getAfter(mutationPath).data.requestHash);
+    }
+
+    function privatePairAfter(userId, data) {
+      let mutationPath = /databases/$(database)/documents/users/$(userId)/private/state/mutations/$(data.lastMutationId);
+      return existsAfter(mutationPath) &&
+        getAfter(mutationPath).data.revision == data.revision &&
+        getAfter(mutationPath).data.baseRevision == data.revision - 1 &&
+        getAfter(mutationPath).data.createdAt == request.time &&
+        validHash(getAfter(mutationPath).data.requestHash);
+    }
+
     match /users/{userId} {
-      allow read: if signedInAs(userId);
-      allow create, update, delete: if false;
-    }
+      allow get: if signedInAs(userId);
+      allow list, create, update, delete: if false;
 
-    // The app can observe its own canonical state in real time. Writes are
-    // callable-only: the Admin SDK bypasses these rules after it verifies the
-    // authenticated UID, App Check token, idempotency key and XP transition.
-    match /users/{userId}/planner/state {
-      allow read: if signedInAs(userId);
-      allow create, update, delete: if false;
-    }
+      match /planner/state {
+        allow get: if signedInAs(userId);
+        allow list, delete: if false;
+        allow create: if signedInAs(userId) &&
+          validPlannerEnvelope(request.resource.data) &&
+          request.resource.data.revision == 1 &&
+          plannerPairAfter(userId, request.resource.data);
+        allow update: if signedInAs(userId) &&
+          validPlannerEnvelope(request.resource.data) &&
+          request.resource.data.revision == resource.data.revision + 1 &&
+          plannerPairAfter(userId, request.resource.data);
 
-    // Idempotency records are implementation details. Neither reads nor
-    // writes are exposed to app clients.
-    match /users/{userId}/planner/state/mutations/{mutationId} {
-      allow read, write: if false;
-    }
+        match /mutations/{mutationId} {
+          function validMutation(data) {
+            return data.keys().hasOnly([
+                'requestHash', 'baseRevision', 'revision', 'createdAt'
+              ]) &&
+              data.keys().hasAll([
+                'requestHash', 'baseRevision', 'revision', 'createdAt'
+              ]) &&
+              validHash(data.requestHash) && data.baseRevision is int &&
+              data.baseRevision >= 0 && data.revision == data.baseRevision + 1 &&
+              data.createdAt == request.time;
+          }
 
-    // Account-owned habits, to-dos, focus sessions, notes, tags and categories
-    // are delivered through a callable transaction. Reads support the offline
-    // Firestore listener; direct client mutation is never allowed.
-    match /users/{userId}/private/state {
-      allow read: if signedInAs(userId);
-      allow create, update, delete: if false;
-    }
+          allow get: if signedInAs(userId) && validMutationId(mutationId);
+          allow list, update, delete: if false;
+          allow create: if signedInAs(userId) &&
+            validMutationId(mutationId) &&
+            validMutation(request.resource.data) &&
+            !exists(/databases/$(database)/documents/users/$(userId)/planner/state/mutations/$(mutationId)) &&
+            existsAfter(/databases/$(database)/documents/users/$(userId)/planner/state) &&
+            getAfter(/databases/$(database)/documents/users/$(userId)/planner/state).data.lastMutationId == mutationId &&
+            getAfter(/databases/$(database)/documents/users/$(userId)/planner/state).data.revision == request.resource.data.revision &&
+            ((!exists(/databases/$(database)/documents/users/$(userId)/planner/state) && request.resource.data.baseRevision == 0) ||
+              (exists(/databases/$(database)/documents/users/$(userId)/planner/state) &&
+                get(/databases/$(database)/documents/users/$(userId)/planner/state).data.revision == request.resource.data.baseRevision));
+        }
+      }
 
-    match /users/{userId}/private/state/mutations/{mutationId} {
-      allow read, write: if false;
+      match /private/state {
+        allow get: if signedInAs(userId);
+        allow list, delete: if false;
+        allow create: if signedInAs(userId) &&
+          validPrivateEnvelope(request.resource.data) &&
+          request.resource.data.revision == 1 &&
+          privatePairAfter(userId, request.resource.data);
+        allow update: if signedInAs(userId) &&
+          validPrivateEnvelope(request.resource.data) &&
+          request.resource.data.revision == resource.data.revision + 1 &&
+          privatePairAfter(userId, request.resource.data);
+
+        match /mutations/{mutationId} {
+          function validMutation(data) {
+            return data.keys().hasOnly([
+                'requestHash', 'baseRevision', 'revision', 'createdAt'
+              ]) &&
+              data.keys().hasAll([
+                'requestHash', 'baseRevision', 'revision', 'createdAt'
+              ]) &&
+              validHash(data.requestHash) && data.baseRevision is int &&
+              data.baseRevision >= 0 && data.revision == data.baseRevision + 1 &&
+              data.createdAt == request.time;
+          }
+
+          allow get: if signedInAs(userId) && validMutationId(mutationId);
+          allow list, update, delete: if false;
+          allow create: if signedInAs(userId) &&
+            validMutationId(mutationId) &&
+            validMutation(request.resource.data) &&
+            !exists(/databases/$(database)/documents/users/$(userId)/private/state/mutations/$(mutationId)) &&
+            existsAfter(/databases/$(database)/documents/users/$(userId)/private/state) &&
+            getAfter(/databases/$(database)/documents/users/$(userId)/private/state).data.lastMutationId == mutationId &&
+            getAfter(/databases/$(database)/documents/users/$(userId)/private/state).data.revision == request.resource.data.revision &&
+            ((!exists(/databases/$(database)/documents/users/$(userId)/private/state) && request.resource.data.baseRevision == 0) ||
+              (exists(/databases/$(database)/documents/users/$(userId)/private/state) &&
+                get(/databases/$(database)/documents/users/$(userId)/private/state).data.revision == request.resource.data.baseRevision));
+        }
+      }
     }
   }
 }

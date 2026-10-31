@@ -65,6 +65,8 @@ class CloudSyncController extends ChangeNotifier {
   final _queuedOperations = <String, Future<void>>{};
   Timer? _retryTimer;
   StreamSubscription<CloudSnapshot>? _remoteUpdates;
+  String? _accountScopeOwner;
+  bool _accountScopeInitialized = false;
   int _retryAttempts = 0;
   bool _disposed = false;
 
@@ -146,7 +148,7 @@ class CloudSyncController extends ChangeNotifier {
             _set(_cacheStatus());
           }
           _startRemoteUpdates();
-          await onAccountChanged?.call(_session?.ownerId);
+          await _ensureAccountScope();
         } catch (error) {
           _fail(error);
         }
@@ -154,43 +156,104 @@ class CloudSyncController extends ChangeNotifier {
 
   /// Credentials are used only for this request, never persisted by the client.
   /// Download must succeed before activating the account or sending local data.
-  Future<void> signIn(String email, String password, {bool register = false}) =>
-      _exclusive('sign-in', () async {
-        _cancelRetry(resetAttempts: true);
-        _set(CloudSyncStatus.restoring);
+  Future<void> signIn(
+    String email,
+    String password, {
+    bool register = false,
+  }) => _exclusive('sign-in', () async {
+    _cancelRetry(resetAttempts: true);
+    _set(CloudSyncStatus.restoring);
+    CloudSession? authenticatedSession;
+    try {
+      final session = register
+          ? await api.register(email, password)
+          : await api.login(email, password);
+      authenticatedSession = session;
+      await _activateSession(session);
+    } catch (error) {
+      // createUserWithEmailAndPassword can succeed before ID-token or
+      // Firestore restoration fails. Reconcile Firebase's persisted user
+      // so the UI doesn't offer registration again for an account that now
+      // exists. Never adopt a different email after a failed attempt.
+      if (authenticatedSession == null && api is CloudCurrentSessionReader) {
         try {
-          final session = register
-              ? await api.register(email, password)
-              : await api.login(email, password);
-          await _activateSession(session);
-        } catch (error) {
-          _fail(error);
+          final current = await (api as CloudCurrentSessionReader)
+              .currentSession();
+          if (current != null &&
+              current.user.email.trim().toLowerCase() ==
+                  email.trim().toLowerCase()) {
+            authenticatedSession = current;
+          }
+        } catch (recoveryError, stackTrace) {
+          debugPrint(
+            '[CloudSync] Could not reconcile Firebase Auth after the '
+            'email/password request: $recoveryError',
+          );
+          debugPrintStack(stackTrace: stackTrace);
         }
-      });
+      }
+      if (authenticatedSession != null &&
+          _session?.ownerId != authenticatedSession.ownerId) {
+        try {
+          await _retainAuthenticatedSession(authenticatedSession);
+        } catch (recoveryError, stackTrace) {
+          debugPrint(
+            '[CloudSync] Firebase accepted uid=${authenticatedSession.ownerId}, '
+            'but local account isolation could not be completed: $recoveryError',
+          );
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }
+      _fail(error);
+    }
+  });
 
   Future<void> _activateSession(CloudSession session) async {
-    final remote = await api.getState(session.accessToken);
-    final previous = _session;
-    await sessionStore.write(session);
+    debugPrint(
+      '[CloudSync] Firebase user authenticated; loading '
+      'users/${session.ownerId}/planner/state before activating the account.',
+    );
     try {
+      final remote = await api.getState(session.accessToken);
+      await sessionStore.write(session);
       await cache.activate(session.ownerId, remote);
-    } catch (_) {
-      if (previous == null) {
-        await sessionStore.clear();
-      } else {
-        await sessionStore.write(previous);
+    } catch (error, stackTrace) {
+      // Auth is already valid. Preserve that Firebase account while keeping
+      // its data isolated; the user can retry the Firestore restore in place.
+      try {
+        await _retainAuthenticatedSession(session);
+      } catch (recoveryError, recoveryStackTrace) {
+        debugPrint(
+          '[CloudSync] Could not retain authenticated uid=${session.ownerId} '
+          'after restore failure: $recoveryError',
+        );
+        debugPrintStack(stackTrace: recoveryStackTrace);
       }
+      debugPrint('[CloudSync] Initial planner restore failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       rethrow;
     }
     _session = session;
     await onApplied?.call();
     _cache = await cache.read();
-    await onAccountChanged?.call(session.ownerId);
+    await _ensureAccountScope();
     _set(_cacheStatus());
     if (_cache.pending.isNotEmpty && _cache.errorCode == null) {
       await _sync();
     }
     _startRemoteUpdates();
+  }
+
+  Future<void> _retainAuthenticatedSession(CloudSession session) async {
+    await cache.guardSession(session.ownerId);
+    _cache = await cache.read();
+    await onApplied?.call();
+    await sessionStore.write(session);
+    _session = session;
+    debugPrint(
+      '[CloudSync] Retained authenticated uid=${session.ownerId}; '
+      'planner/private sync remains pending until the Firestore restore succeeds.',
+    );
   }
 
   void _startRemoteUpdates() {
@@ -273,10 +336,10 @@ class CloudSyncController extends ChangeNotifier {
     }
   });
 
-  Future<void> requestPasswordReset(String email) =>
+  Future<void> requestPasswordReset(String email, {String? languageCode}) =>
       _exclusive('reset-request', () async {
         try {
-          await api.requestPasswordReset(email);
+          await api.requestPasswordReset(email, languageCode: languageCode);
           _set(CloudSyncStatus.signedOut, 'password_reset_sent');
         } catch (error) {
           _fail(error);
@@ -324,8 +387,16 @@ class CloudSyncController extends ChangeNotifier {
     await sessionStore.clear();
     _session = null;
     await onApplied?.call();
-    await onAccountChanged?.call(null);
+    await _ensureAccountScope();
     _cache = await cache.read();
+  }
+
+  Future<void> _ensureAccountScope() async {
+    final ownerId = _session?.ownerId;
+    if (_accountScopeInitialized && _accountScopeOwner == ownerId) return;
+    await onAccountChanged?.call(ownerId);
+    _accountScopeOwner = ownerId;
+    _accountScopeInitialized = true;
   }
 
   Future<T> _authorized<T>(Future<T> Function(String token) action) async {
@@ -403,6 +474,7 @@ class CloudSyncController extends ChangeNotifier {
     }
     final owner = _session?.ownerId;
     if (owner == null) {
+      await _ensureAccountScope();
       _set(CloudSyncStatus.signedOut);
       return;
     }
@@ -417,6 +489,7 @@ class CloudSyncController extends ChangeNotifier {
         throw const CloudApiException('session_expired');
       }
     }
+    await _ensureAccountScope();
     if (_cache.errorCode != null) {
       _set(_cacheStatus(), _cache.errorCode);
       return;
@@ -492,7 +565,7 @@ class CloudSyncController extends ChangeNotifier {
         await sessionStore.clear();
         _session = null;
         await onApplied?.call();
-        await onAccountChanged?.call(null);
+        await _ensureAccountScope();
         _cache = await cache.read();
         _set(
           configured ? CloudSyncStatus.signedOut : CloudSyncStatus.unconfigured,
@@ -524,9 +597,12 @@ class CloudSyncController extends ChangeNotifier {
         : error is StateError && error.message == 'cloud_queue_full'
         ? 'cloud_queue_full'
         : 'local_storage_error';
+    debugPrint('[CloudSync] operation failed code=$code detail=$error');
     _set(switch (code) {
       'unconfigured' || 'invalid_configuration' => CloudSyncStatus.unconfigured,
-      'network_error' || 'service_unavailable' => CloudSyncStatus.offline,
+      'network_error' ||
+      'service_unavailable' ||
+      'firestore_unavailable' => CloudSyncStatus.offline,
       'unauthorized' || 'session_expired' => CloudSyncStatus.sessionExpired,
       'revision_conflict' => CloudSyncStatus.conflict,
       _ => CloudSyncStatus.rejected,

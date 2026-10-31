@@ -57,21 +57,117 @@ import 'package:streak/services/widget_action_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await _startup();
-  } catch (e, s) {
-    debugPrint('Streak could not start: $e');
-    debugPrintStack(stackTrace: s);
-    runApp(
-      StartupFailure(
-        error: '$e',
-        logPath: _writeStartupLog(e, s),
-        blocked: _blockedByWindows(e),
-      ),
-    );
-    return;
+  runApp(const _StartupGate());
+}
+
+/// Render a useful first frame before opening Hive, restoring native planner
+/// state, and initializing notification plugins. Those operations stay ordered
+/// before the providers are created, so the account and planner caches cannot
+/// be observed before their ownership checks finish.
+class _StartupGate extends StatefulWidget {
+  const _StartupGate();
+
+  @override
+  State<_StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<_StartupGate> {
+  Object? _failure;
+  StackTrace? _failureStack;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initialize());
   }
-  _run();
+
+  Future<void> _initialize() async {
+    final stopwatch = Stopwatch()..start();
+    debugPrint('[Startup] initialization started.');
+    try {
+      await _startup();
+      debugPrint(
+        '[Startup] initialization complete in ${stopwatch.elapsedMilliseconds} ms.',
+      );
+      if (mounted) setState(() => _ready = true);
+    } catch (error, stackTrace) {
+      debugPrint('Level Up could not start: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        setState(() {
+          _failure = error;
+          _failureStack = stackTrace;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final failure = _failure;
+    if (failure != null) {
+      final stackTrace = _failureStack!;
+      return StartupFailure(
+        error: '$failure',
+        logPath: _writeStartupLog(failure, stackTrace),
+        blocked: _blockedByWindows(failure),
+      );
+    }
+    if (_ready) return _application();
+    return const _StartupProgress();
+  }
+}
+
+class _StartupProgress extends StatelessWidget {
+  const _StartupProgress();
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: const Color(0xFF090909),
+      colorScheme: const ColorScheme.dark(
+        primary: Color(0xFF8D4CFF),
+        surface: Color(0xFF090909),
+      ),
+    ),
+    home: const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.auto_awesome, color: Color(0xFF8D4CFF), size: 42),
+            SizedBox(height: 20),
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Future<T> _startupStep<T>(String name, Future<T> Function() action) async {
+  final stopwatch = Stopwatch()..start();
+  debugPrint('[Startup] $name started.');
+  try {
+    final value = await action();
+    debugPrint(
+      '[Startup] $name completed in ${stopwatch.elapsedMilliseconds} ms.',
+    );
+    return value;
+  } catch (error, stackTrace) {
+    debugPrint(
+      '[Startup] $name failed after ${stopwatch.elapsedMilliseconds} ms: $error',
+    );
+    debugPrintStack(stackTrace: stackTrace);
+    rethrow;
+  }
 }
 
 Future<AppExitResponse> _leaveNoTrace() async {
@@ -105,9 +201,12 @@ Future<void> _startup() async {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
-  await initializeDateFormatting();
-  await LocalStore.init();
-  final firebase = await FirebaseRuntime.initialize();
+  await _startupStep<void>('locale data', initializeDateFormatting);
+  await _startupStep<void>('local Hive store', LocalStore.init);
+  final firebase = await _startupStep<FirebaseRuntime>(
+    'Firebase initialization and App Check',
+    FirebaseRuntime.initialize,
+  );
   if (firebase.ready) {
     final api = FirebaseCloudApi();
     _cloudApi = api;
@@ -115,6 +214,9 @@ Future<void> _startup() async {
     _firebasePrivateSync = FirebasePrivateDataSync(
       onApplied: _reloadAccountCaches,
     )..start();
+    AppLifecycleListener(
+      onResume: () => unawaited(_firebasePrivateSync?.synchronize()),
+    );
   } else {
     _cloudApi = const FirebaseUnavailableCloudApi();
     _cloudSessions = const FirebaseUnavailableSessionStore();
@@ -122,8 +224,10 @@ Future<void> _startup() async {
   // Check secure identity before a folder import or any provider can expose
   // another account's previous native/Hive cache.
   if (firebase.ready) {
-    final savedSession = await _cloudSessions.read();
-    await _cloudCache.guardSession(savedSession?.ownerId);
+    await _startupStep<void>('Firebase account cache isolation', () async {
+      final savedSession = await _cloudSessions.read();
+      await _cloudCache.guardSession(savedSession?.ownerId);
+    });
   }
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(
@@ -140,14 +244,19 @@ Future<void> _startup() async {
     );
   });
   AppClock.cutoffHour = LocalStore.setting('dayCutoff', 0);
-  await WidgetActionService.drain(
-    LocalStore.readHabits(),
-    todos: LocalStore.readTodos(),
-  );
-  await FolderSync.pull();
+  await _startupStep<void>('pending widget actions', () async {
+    await WidgetActionService.drain(
+      LocalStore.readHabits(),
+      todos: LocalStore.readTodos(),
+    );
+  });
+  await _startupStep<int>('shared-folder recovery', FolderSync.pull);
   // Validate/migrate once, or recover the Hive backup mirror from Android's
   // authoritative AtomicFile before creating any planner controller.
-  await PlannerRepository().initialize();
+  await _startupStep<void>(
+    'planner migration and recovery',
+    PlannerRepository().initialize,
+  );
   unawaited(ImageCleanupService.run());
 
   NotificationService.onOpenHabit = _openHabit;
@@ -158,7 +267,10 @@ Future<void> _startup() async {
   FocusService.onPending = drainFocusActions;
   FocusService.listen();
   try {
-    await NotificationService().initialize();
+    await _startupStep<void>(
+      'notification and timezone initialization',
+      NotificationService().initialize,
+    );
   } catch (e, s) {
     debugPrint('Startup init (notifications/widget) failed: $e\n$s');
   }
@@ -202,77 +314,73 @@ Future<void> _startup() async {
   });
 }
 
-void _run() {
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => SettingsController()),
-        ChangeNotifierProvider(
-          lazy: false,
-          create: (context) {
-            final settings = context.read<SettingsController>();
-            late final PlannerController controller;
-            final repository = PlannerRepository();
-            controller = PlannerController(
-              loadLatest: repository.loadLatest,
-              transaction: repository.transaction,
-              persist: repository.save,
-              afterCommit: () async {
-                await reschedulePlannerReminders(controller);
-                await settings.runAutoBackup();
-                unawaited(_cloud?.synchronize());
-              },
-            );
-            return controller;
+Widget _application() => MultiProvider(
+  providers: [
+    ChangeNotifierProvider(create: (_) => SettingsController()),
+    ChangeNotifierProvider(
+      lazy: false,
+      create: (context) {
+        final settings = context.read<SettingsController>();
+        late final PlannerController controller;
+        final repository = PlannerRepository();
+        controller = PlannerController(
+          loadLatest: repository.loadLatest,
+          transaction: repository.transaction,
+          persist: repository.save,
+          afterCommit: () async {
+            await reschedulePlannerReminders(controller);
+            await settings.runAutoBackup();
+            unawaited(_cloud?.synchronize());
           },
-        ),
-        ChangeNotifierProvider<CloudSyncController>(
-          lazy: false,
-          create: (context) {
-            final cloud = CloudSyncController(
-              api: _cloudApi,
-              cache: _cloudCache,
-              sessionStore: _cloudSessions,
-              googleIdTokenProvider: _googleIdTokens,
-              exportDraft: _cloudCache.exportDraft,
-              onApplied: _reloadAccountCaches,
-              onAccountChanged: (ownerId) =>
-                  _firebasePrivateSync?.activate(ownerId) ?? Future.value(),
-            );
-            _cloud = cloud;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              unawaited(cloud.initialize());
-            });
-            return cloud;
-          },
-        ),
-        ChangeNotifierProvider(create: (_) => CategoriesController()),
-        ChangeNotifierProvider(create: (_) => TodoTagsController()),
-        ChangeNotifierProvider(create: (_) => NotesController()),
-        ChangeNotifierProvider(
-          create: (_) {
-            final controller = TodosController();
-            TodosWidgetService.sync(controller.all);
-            return controller;
-          },
-        ),
-        ChangeNotifierProvider(create: (_) => FocusController()),
-        ChangeNotifierProvider(create: (_) => IslandController()),
-        ChangeNotifierProvider(
-          create: (_) {
-            final controller = HabitsController();
-            HomeWidgetService.sync(controller.asMap);
-            WidgetsBinding.instance.addPostFrameCallback(
-              (_) => controller.rescheduleReminders(),
-            );
-            return controller;
-          },
-        ),
-      ],
-      child: const StreakApp(),
+        );
+        return controller;
+      },
     ),
-  );
-}
+    ChangeNotifierProvider<CloudSyncController>(
+      lazy: false,
+      create: (context) {
+        final cloud = CloudSyncController(
+          api: _cloudApi,
+          cache: _cloudCache,
+          sessionStore: _cloudSessions,
+          googleIdTokenProvider: _googleIdTokens,
+          exportDraft: _cloudCache.exportDraft,
+          onApplied: _reloadAccountCaches,
+          onAccountChanged: (ownerId) =>
+              _firebasePrivateSync?.activate(ownerId) ?? Future.value(),
+        );
+        _cloud = cloud;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(cloud.initialize());
+        });
+        return cloud;
+      },
+    ),
+    ChangeNotifierProvider(create: (_) => CategoriesController()),
+    ChangeNotifierProvider(create: (_) => TodoTagsController()),
+    ChangeNotifierProvider(create: (_) => NotesController()),
+    ChangeNotifierProvider(
+      create: (_) {
+        final controller = TodosController();
+        TodosWidgetService.sync(controller.all);
+        return controller;
+      },
+    ),
+    ChangeNotifierProvider(create: (_) => FocusController()),
+    ChangeNotifierProvider(create: (_) => IslandController()),
+    ChangeNotifierProvider(
+      create: (_) {
+        final controller = HabitsController();
+        HomeWidgetService.sync(controller.asMap);
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => controller.rescheduleReminders(),
+        );
+        return controller;
+      },
+    ),
+  ],
+  child: const StreakApp(),
+);
 
 const _appChannel = MethodChannel('streak/app_icon');
 

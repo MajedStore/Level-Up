@@ -1,153 +1,117 @@
-# Firebase migration and secure rollout
+# Firebase setup and synchronization
 
-## Current implementation state
+Level Up uses Firebase Authentication and Cloud Firestore directly. The
+Flutter runtime no longer depends on Cloud Functions or an external HTTP API.
+Firebase Authentication and Firestore can be used on Spark; this design does
+not require Functions deployment or a billing-plan upgrade.
 
-Level Up now includes a Firebase transport that is activated only after valid
-Firebase options are present. It provides Firebase email/password auth, Google
-credential exchange, password-reset links, Firebase session restoration, a
-Firestore state listener, and callable synchronization. Until configuration is
-present, the app remains local-only. It has no alternate HTTP account or data
-transport.
+## Data layout and transaction behavior
 
-The repository did not contain a Firebase project configuration, Android
-`google-services.json`, or generated `firebase_options.dart`. No Firebase
-project ID, OAuth client, API key, or other configuration was invented.
-
-## Data model and trust boundary
-
-The canonical planner snapshot is stored at:
+Each signed-in user's planner snapshot lives at:
 
 ```text
 users/{firebaseUid}/planner/state
 ```
 
-It contains the revision, planner state, compact app settings, time zone and a
-server timestamp. Idempotency records are private subdocuments below it at
-`mutations/{mutationId}`. The client can listen to its own state document but
-cannot write it directly. `syncPlannerState` is a second-generation callable
-function that verifies Firebase Auth and App Check, checks the mutation hash
-and revision inside a Firestore transaction, then runs the existing Level Up
-server-side transition/XP rules before committing.
+The private habit/task snapshot lives at:
 
-This keeps duplicate retries idempotent and prevents a modified client from
-minting XP. Firestore document size is deliberately capped below 1 MiB. A state
-that is too large remains queued locally for a future chunked model; it is
-never silently truncated.
-
-Habits, categories, notes, focus sessions, to-dos and tags use a second
-account-owned document at `users/{firebaseUid}/private/state`. It is read-only
-to the signed-in user and every mutation goes through the App-Check-protected
-`syncPrivateData` callable. It has an independent revision and idempotency
-record, so pending offline local work is retained instead of overwriting a
-newer device. Device settings, backup locations, credentials, local journals
-and planner XP state are deliberately excluded.
-
-## Required Firebase Console work
-
-1. Create or select the Firebase project that should own Level Up. Register its
-   Android app using the existing package ID `com.streak.app`.
-2. Add the SHA-1 of the actual release signing certificate. Add the Play App
-   Signing SHA-1 too if Play distributes the app. Enable the Google provider in
-   Firebase Authentication and add the Android OAuth client in the same Google
-   Cloud project.
-3. Enable Email/Password and Google under **Authentication -> Sign-in method**.
-   Configure the password-reset email template and approved continue URLs.
-4. Create a Firestore database in production mode, then deploy the included
-   restrictive rules. Do not replace them with test-mode rules.
-5. Enable Play Integrity in **App Check** for the Android app before deploying
-   the callable. Register debug devices only for development. The callable
-   enforces App Check.
-6. Firebase Functions requires a billing-enabled Firebase/Google Cloud project.
-   Install the Firebase CLI, select the existing project, then deploy from the
-   repository root. The Firebase CLI is not installed in this workspace, so
-   these commands are intentionally documented rather than run here:
-
-```powershell
-npm install -g firebase-tools
-firebase login
-dart pub global activate flutterfire_cli
-flutterfire configure --platforms=android --out=lib/firebase_options.dart
-Push-Location functions
-npm ci
-npm run check
-Pop-Location
-firebase deploy --only firestore:rules,functions:syncPlannerState,functions:syncPrivateData
+```text
+users/{firebaseUid}/private/state
 ```
 
-`flutterfire configure` replaces the safe, unconfigured
-`lib/firebase_options.dart` starter with the generated configuration for the
-chosen project. Its identifiers are configuration, not server secrets. Do not
-put service-account JSON, OAuth client secrets, or any server signing key into
-the Flutter app.
+Both documents carry a monotonically increasing revision and a
+`lastMutationId`. Each successful revision is paired atomically with an
+immutable record at `state/mutations/{mutationId}`. Clients use Firestore
+transactions to check the previous revision, detect duplicate retries, and
+commit the state plus mutation record together. Realtime listeners watch only
+the current user's state documents.
 
-## Google Sign-In configuration
+Planner edits are first persisted to the existing local planner queue. When
+online, the queue submits its ordered mutations; conflicts retain the local
+draft for the existing conflict/recovery flow. Private records stay in Hive,
+with pending state retained across restarts. Transactions need a network
+connection; offline edits remain local and are retried on a subsequent
+foreground or account activation.
 
-`LEVEL_UP_GOOGLE_SERVER_CLIENT_ID` is read only by
-[`GoogleSignInService`](../lib/services/google_sign_in_service.dart) through a
-Flutter compile-time `String.fromEnvironment`. It is the **Web OAuth client
-ID**, not a secret. It belongs in the Flutter build/CI variable because the
-Google Sign-In Android plugin requests an ID token for that audience. It does
-not belong in Firebase Functions configuration or a Functions secret: Firebase
-Authentication verifies the credential when the app calls
-`signInWithCredential`.
+The rules enforce the UID path, document envelope, allowed top-level fields,
+revision increments and paired mutation records. Private payloads are limited
+to the six existing account-owned collections. They do not validate every
+nested record or execute the former server-side planner transition algorithm.
+Flutter keeps the existing model/progression validation for normal app use, but
+a user who modifies the client can alter their own planner/XP document. Rules
+still prevent that user from reading or writing another UID's documents. A
+server-authoritative XP guarantee cannot be preserved on Spark using Firestore
+Rules alone; that requires trusted server code such as Cloud Functions or
+another backend.
 
-To configure it:
+The local rules test suite exercises authenticated ownership, cross-user
+isolation, invalid document shapes, revision concurrency and recovery after a
+network interruption. It does not test production project settings or
+authenticated live data.
 
-1. In Firebase Console, open your project, then **Authentication -> Sign-in
-   method -> Google** and enable it. Save the project support email.
-2. Open **Project settings -> General -> Your apps -> Android app**. Add the
-   debug/release/Play signing SHA-1 fingerprints as applicable.
-3. Open the linked Google Cloud project’s **APIs & Services -> Credentials**.
-   Copy the OAuth 2.0 client of type **Web application**; its ID ends in
-   `.apps.googleusercontent.com`. Do not copy a client secret.
-4. Enter that ID as the GitHub repository variable
-   `LEVEL_UP_GOOGLE_SERVER_CLIENT_ID` (or the workflow dispatch input), or pass
-   it locally as the Dart define below.
+## Firebase Console checklist
 
-`flutterfire configure` selects the Firebase project, registers/updates the
-platform app, generates `lib/firebase_options.dart`, and downloads Android
-configuration as needed. It does not create a Web OAuth client secret, enable
-providers, add SHA fingerprints, or set this Dart build variable.
+1. In **Authentication → Sign-in method**, enable Email/Password and Google.
+   Configure the support email and password-reset template/continue URLs.
+2. In **Project settings → General → Your apps**, ensure the Android app has
+   package ID `com.streak.app` and register the signing fingerprints used by
+   your debug/release builds.
+3. In **Firestore Database → Rules**, deploy the repository's `firestore.rules`
+   after reviewing the owner-only rules. No rules deployment was performed as
+   part of this code change.
+4. In **App Check → Apps**, register the Android app with Play Integrity if you
+   enforce App Check for Firestore. For emulator development, use the app's
+   debug-provider define and register the generated debug token; never ship it
+   in release builds.
 
-Build with the Web client ID; never use a client secret:
+The repository's `firebase.json` no longer configures a Functions deployment.
+The old `functions/` source remains in the tree as a reference but is not
+imported by Flutter or included in Firebase deployment configuration.
+
+## Google Sign-In
+
+On Android, `google_sign_in` reads the Web OAuth client ID from the generated
+`default_web_client_id` resource produced by the Google Services Gradle plugin.
+The client ID is therefore sourced from the same `google-services.json` as the
+Firebase project; do not pass the old backend `.env` value as a Flutter define.
+No OAuth client ID or secret needs to be copied into Flutter source.
+
+Run Android builds without a Google OAuth define:
 
 ```powershell
-flutter build apk --release `
-  --dart-define=LEVEL_UP_GOOGLE_SERVER_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
+flutter run
 ```
 
-For local App Check development only, add
-`--dart-define=LEVEL_UP_FIREBASE_DEBUG_APP_CHECK=true`, enroll the displayed
-debug token in Firebase Console, and never use that define for a release build.
+`flutterfire configure --project level-up-cf52d --platforms android` generates
+or refreshes `lib/firebase_options.dart` for the selected Firebase project and
+updates native Android Firebase configuration as needed. It does not enable
+Authentication providers, register signing fingerprints, or complete a real
+Google sign-in test.
 
 ## Existing-account migration
 
-Credentials from a retired service cannot be converted into Firebase passwords,
-and a retired account ID is not proof of a Firebase UID. Do not auto-create or
-merge Firebase accounts from an unverified export. First verify a disposable
-Firebase account end to end, then perform an explicit, separately reviewed
-admin migration that maps a verified retired account to a verified Firebase UID
-and invokes the trusted callable paths. Preserve revision order and never write
-Firestore directly from an export script.
+Credentials from a retired service cannot be converted into Firebase
+passwords, and an old account ID is not proof of a Firebase UID. Do not merge
+accounts from an unverified export. No migration utility is retained. Any
+future import must be separately reviewed, map verified accounts to verified
+Firebase UIDs, and preserve the local pending-change recovery path.
 
-No import utility is retained in this repository because no completed,
-verified export mapping exists. Any future one-time utility must be kept outside
-the Flutter runtime, use Firebase Admin credentials from a secret manager, and
-be removed after the migration is audited.
+## Local verification
 
-## Verification completed locally
+Run Flutter checks from the project root:
 
-- `flutter pub get` completed with the Firebase packages.
-- The changed Firebase/authentication/sync Dart files analyze cleanly. The full
-  project analyzer has no errors or warnings; it reports eight pre-existing
-  Flutter deprecation infos in unrelated widgets.
-- Focused account, Google and synchronization tests passed before this cleanup.
-- The Firebase callable module is checked from `functions/` with `npm run check`.
-- A debug Android APK built successfully after the Firebase Auth dependency
-  required Kotlin 2.4 support. Its SHA-256 is
-  `7E9ACF5ED8C7EB976DB7C3DDE1B27024EC815EE869CBBA7B3621F4723852E030`.
+```powershell
+flutter analyze
+flutter test
+```
 
-The Firebase CLI, a Firebase project, generated FlutterFire options, deployed
-rules/functions, App Check enrollment, and a real Firebase account are not
-available in this workspace. Therefore no live Firebase registration, Google
-sign-in, Firestore write, listener, or migration is claimed as tested.
+Run the rules suite using the Firebase Emulator Suite and a JDK supported by
+the installed Firebase CLI:
+
+```powershell
+npm install --prefix test\firestore_rules
+firebase emulators:exec --only firestore --project demo-level-up-rules "npm --prefix test/firestore_rules test"
+```
+
+The test project ID is a demo-only ID; the emulator does not connect to or
+modify the configured production Firebase project.

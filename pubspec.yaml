@@ -3,7 +3,7 @@ description: "Level Up: a weekly planner with challenges, XP and optional accoun
 
 publish_to: 'none'
 
-version: 3.0.0+22
+version: 3.0.0+23
 
 environment:
   # google_sign_in 7 uses the current Google Identity APIs and requires Dart
@@ -47,7 +47,6 @@ dependencies:
   firebase_core: ^5.1.0
   firebase_auth: ^7.0.1
   cloud_firestore: ^7.1.0
-  cloud_functions: ^7.0.1
   firebase_app_check: ^0.5.1
 
 dev_dependencies:
@@ -84,6 +83,7 @@ flutter:
     - fonts/Cairo/OFL.txt
     - assets/profile_default.jpg
     - assets/icon.png
+    - assets/google_signin_g.png
     - assets/sounds/
     - assets/backgrounds/
     - assets/island/

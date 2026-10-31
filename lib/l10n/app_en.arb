@@ -2763,7 +2763,7 @@
   "planner_cloudResetCode": "Reset code",
   "planner_cloudResetRequestInfo": "Enter your email and we will send a one-time reset code if password recovery is available for the account.",
   "planner_cloudResetCodeInfo": "Enter the code from your email and choose a new password.",
-  "planner_cloudResetLinkInfo": "Check your email and follow the password-reset link. Return here when you are done.",
+  "planner_cloudResetLinkInfo": "Open the link in the email to choose a new password, then sign in here. Check your spam folder if it does not arrive.",
   "planner_cloudResetLinkSent": "If an account can be recovered, a password-reset link has been sent.",
   "planner_cloudReturnToSignIn": "Return to sign in",
   "planner_cloudResetSent": "If recovery and delivery are available, check your email for a reset code.",
@@ -2774,7 +2774,15 @@
   "planner_cloudGoogleLink": "Link Google",
   "planner_cloudGoogleCanceled": "Google sign-in was canceled.",
   "planner_cloudGoogleUnavailable": "Google sign-in is not configured for this build.",
-  "planner_cloudGoogleConfiguration": "Google sign-in is unavailable. Please try again later.",
+  "planner_cloudGoogleProviderDisabled": "Google sign-in is disabled in Firebase Authentication. Enable Google under Firebase Console > Authentication > Sign-in method.",
+  "planner_cloudEmailProviderDisabled": "Email/password sign-in is disabled in Firebase Authentication. Enable Email/Password under Firebase Console > Authentication > Sign-in method.",
+  "planner_cloudFirebaseConfiguration": "Firebase rejected this Android app configuration. Check that the installed app and google-services.json use the same Firebase Android app.",
+  "planner_cloudAccountDisabled": "This Firebase account is disabled. Contact the app administrator.",
+  "planner_cloudFirestorePermissionDenied": "Firestore denied this account's access. Check the deployed rules for the signed-in user and document path.",
+  "planner_cloudFirestoreUnauthenticated": "Firestore could not verify this request. Your account is still signed in; retry sync. If it continues, check the connection and Firebase configuration.",
+  "planner_cloudFirestorePrecondition": "Firestore rejected this operation because a database precondition failed. Check the database configuration and deployed rules.",
+  "planner_cloudGoogleConfiguration": "Firebase rejected this Google sign-in credential. In Firebase Console, open Authentication → Sign-in method → Google and add the existing Android OAuth client under “Safelist client IDs from external projects.” Keep using the Web client from the same Google Cloud project for the server client ID. Email/password sign-in remains available.",
+  "planner_cloudGoogleCredentialRejected": "Google account selection and ID-token retrieval succeeded, but Firebase Authentication rejected the Google credential (invalid-credential). This is separate from your email and password. Check the Google provider's accepted OAuth client IDs and the token audience.",
   "planner_cloudGoogleLinkRequired": "Sign in with your password first, then link Google from your account.",
   "planner_cloudGoogleEmailMismatch": "Choose the Google account with the same email address.",
   "planner_cloudGoogleAlreadyLinked": "This Google account is already linked to another account.",
@@ -2814,5 +2822,18 @@
   },
   "planner_cloudExportDraft": "Export local draft",
   "planner_cloudPasswordRule": "Use a passphrase of at least 12 characters. If it is too long, shorten it.",
-  "planner_cloudQueueFull": "Sync or export your pending changes before adding more. Your existing changes are kept."
+  "planner_cloudQueueFull": "Sync or export your pending changes before adding more. Your existing changes are kept.",
+  "planner_authOr": "or",
+  "planner_levelShort": "Level {level}",
+  "@planner_levelShort": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "planner_cloudResetLinkRequestInfo": "Enter your account email and we will send you a link to choose a new password.",
+  "planner_cloudResendLink": "Resend email",
+  "planner_cloudContinueWithoutAccount": "Continue without signing in",
+  "planner_cloudGuest": "Not signed in"
 }

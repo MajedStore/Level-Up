@@ -58,6 +58,14 @@ class MemoryCloudCache implements CloudPlannerCache {
   @override
   Future<CloudCache> read() async => value;
   @override
+  Future<void> guardSession(String? secureOwnerId) async {
+    if (value.ownerId != null && value.ownerId != secureOwnerId) {
+      archived++;
+      value = const CloudCache();
+    }
+  }
+
+  @override
   Future<void> activate(String ownerId, CloudSnapshot remote) async {
     events.add('activate');
     if (failActivation) throw StateError('storage failure');
@@ -121,6 +129,7 @@ class MemoryCloudCache implements CloudPlannerCache {
 
   @override
   Future<void> signOut() async {
+    if (value.ownerId == null) return;
     events.add('isolate');
     archived++;
     value = const CloudCache();
@@ -143,6 +152,7 @@ class FakeCloudApi implements CloudApi {
   Object? googleError;
   Object? resetError;
   final resetRequests = <String>[];
+  final resetLanguages = <String?>[];
   final resetCompletions = <({String email, String token, String password})>[];
   int refreshes = 0;
   Completer<void>? hold;
@@ -180,10 +190,14 @@ class FakeCloudApi implements CloudApi {
   }
 
   @override
-  Future<void> requestPasswordReset(String email) async {
+  Future<void> requestPasswordReset(
+    String email, {
+    String? languageCode,
+  }) async {
     events.add('reset-request');
     if (resetError != null) throw resetError!;
     resetRequests.add(email);
+    resetLanguages.add(languageCode);
   }
 
   @override
@@ -305,14 +319,34 @@ void main() {
       expect(applied, 1);
     },
   );
-  test('failed restore leaves guest and secure identity untouched', () async {
-    api.getError = const CloudApiException('network_error');
-    await controller.signIn('a@example.com', 'password');
-    expect(sessions.writes, 0);
-    expect(cache.events, isEmpty);
-    expect(controller.user, isNull);
-    expect(controller.status, CloudSyncStatus.offline);
-  });
+  test(
+    'authenticated account survives a failed restore and can retry',
+    () async {
+      api.getError = const CloudApiException('network_error');
+      await controller.signIn('a@example.com', 'password');
+      expect(sessions.writes, 1);
+      expect(cache.events, isEmpty);
+      expect(controller.user?.id, 'a');
+      expect(cache.value.ownerId, isNull);
+      expect(controller.status, CloudSyncStatus.offline);
+      api.getError = null;
+      await controller.retryNow();
+      expect(cache.value.ownerId, 'a');
+      expect(controller.status, CloudSyncStatus.synced);
+    },
+  );
+  test(
+    'Firestore unauthenticated response does not turn Firebase sign-in into sign-out',
+    () async {
+      api.getError = const CloudApiException('firestore_unauthenticated');
+      await controller.signIn('a@example.com', 'password');
+      expect(controller.user?.id, 'a');
+      expect(controller.status, CloudSyncStatus.rejected);
+      expect(controller.errorCode, 'firestore_unauthenticated');
+      expect(sessions.value?.ownerId, 'a');
+      expect(cache.value.ownerId, isNull);
+    },
+  );
   test(
     'Google cancellation leaves the app signed out without a server call',
     () async {
@@ -654,15 +688,15 @@ void main() {
     },
   );
   test(
-    'activation failure rolls back public and secure identity before retry',
+    'cache activation failure preserves Firebase identity for in-place retry',
     () async {
       cache.failActivation = true;
       await controller.signIn('a@example.com', 'password');
-      expect(controller.user, isNull);
-      expect(sessions.value, isNull);
+      expect(controller.user?.id, 'a');
+      expect(sessions.value?.ownerId, 'a');
       expect(cache.value.ownerId, isNull);
       cache.failActivation = false;
-      await controller.signIn('a@example.com', 'password');
+      await controller.retryNow();
       expect(cache.value.ownerId, 'a');
       expect(controller.status, CloudSyncStatus.synced);
     },

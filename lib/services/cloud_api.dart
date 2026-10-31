@@ -21,7 +21,10 @@ abstract interface class CloudApi {
   Future<CloudSession> refresh(String refreshToken);
   Future<void> logout(String refreshToken);
   Future<CloudUser> linkGoogle(String accessToken, String idToken);
-  Future<void> requestPasswordReset(String email);
+
+  /// [languageCode] selects the localized reset email where the backend has
+  /// one (Firebase Auth's built-in templates); null keeps its default.
+  Future<void> requestPasswordReset(String email, {String? languageCode});
   Future<void> completePasswordReset(
     String email,
     String token,
@@ -29,6 +32,12 @@ abstract interface class CloudApi {
   );
   Future<CloudSnapshot> getState(String accessToken);
   Future<CloudSnapshot> sync(String accessToken, CloudMutation mutation);
+}
+
+/// A Firebase adapter can reconcile an account that Firebase Auth accepted
+/// before a subsequent profile/planner restore failed.
+abstract interface class CloudCurrentSessionReader {
+  Future<CloudSession?> currentSession();
 }
 
 /// Firebase password-reset links are completed outside the app.

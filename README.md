@@ -1,9 +1,10 @@
 # Level Up
 
-The current cloud architecture is Firebase Authentication, Cloud Firestore and
-trusted Firebase callable functions. Follow the
-[Firebase migration guide](docs/FIREBASE_MIGRATION.md) for Android setup,
-security rules, App Check and deployment.
+The current cloud architecture is Firebase Authentication and Cloud Firestore.
+Sync uses owner-scoped Firestore transactions and does not require Cloud
+Functions. See the [Firebase guide](docs/FIREBASE_MIGRATION.md) for setup,
+security rules, offline behavior and the limits of client-side progression
+validation.
 
 For Firebase email/password sign-in, Google OAuth, password reset and secure
 sync configuration, use the [Firebase migration guide](docs/FIREBASE_MIGRATION.md).

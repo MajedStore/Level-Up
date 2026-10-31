@@ -286,63 +286,103 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
                     ? context.plannerText('invalidActivityTitle')
                     : null,
               ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today_outlined),
-                title: Text(plannerLocalDate(context, _date, weekday: true)),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _date,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null && mounted) {
-                    setState(() => _date = picked);
-                  }
-                },
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                secondary: const Icon(Icons.schedule_outlined),
-                title: Text(context.plannerText('scheduledBlock')),
-                value: _scheduled,
-                onChanged: (v) => setState(() => _scheduled = v),
+              const SizedBox(height: 16),
+              PlannerGroup(
+                children: [
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    leading: Icon(
+                      Icons.calendar_today_rounded,
+                      color: context.tokens.muted,
+                    ),
+                    title: Text(
+                      plannerLocalDate(context, _date, weekday: true),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right_rounded,
+                      color: context.tokens.muted,
+                    ),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _date,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null && mounted) {
+                        setState(() => _date = picked);
+                      }
+                    },
+                  ),
+                  SwitchListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    secondary: Icon(
+                      Icons.schedule_rounded,
+                      color: context.tokens.muted,
+                    ),
+                    title: Text(context.plannerText('scheduledBlock')),
+                    value: _scheduled,
+                    onChanged: (v) => setState(() => _scheduled = v),
+                  ),
+                ],
               ),
               if (_scheduled) ...[
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 10,
+                const SizedBox(height: 12),
+                Row(
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: () => _chooseTime(_start, (v) => _start = v),
-                      icon: const Icon(Icons.schedule_rounded),
-                      label: Text(
-                        context.plannerText('startTime', {
-                          'time': _time(_start),
-                        }),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: () => _chooseTime(_start, (v) => _start = v),
+                        child: Text(
+                          context.plannerText('startTime', {
+                            'time': _time(_start),
+                          }),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: () => _chooseTime(_end, (v) => _end = v),
-                      icon: const Icon(Icons.schedule_rounded),
-                      label: Text(
-                        context.plannerText('endTime', {'time': _time(_end)}),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: () => _chooseTime(_end, (v) => _end = v),
+                        child: Text(
+                          context.plannerText('endTime', {
+                            'time': _time(_end),
+                          }),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
                   ],
                 ),
                 if (_end <= _start || _overnight)
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(context.plannerText('endsNextDay')),
-                    value: _overnight,
-                    onChanged: (v) => setState(() {
-                      _overnight = v;
-                      _timeError = null;
-                    }),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: PlannerGroup(
+                      children: [
+                        SwitchListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
+                          secondary: Icon(
+                            Icons.nights_stay_outlined,
+                            color: context.tokens.muted,
+                          ),
+                          title: Text(context.plannerText('endsNextDay')),
+                          value: _overnight,
+                          onChanged: (v) => setState(() {
+                            _overnight = v;
+                            _timeError = null;
+                          }),
+                        ),
+                      ],
+                    ),
                   ),
                 if ((_overnight && _end <= _start) ||
                     (!_overnight && _end > _start))
@@ -455,56 +495,91 @@ class _PlannerEditorPageState extends State<PlannerEditorPage> {
                     style: TextStyle(color: context.colors.error),
                   ),
                 ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                secondary: const Icon(Icons.notifications_outlined),
-                title: Text(context.plannerText('remindMe')),
-                value: _reminder,
-                onChanged: (v) async {
-                  setState(() => _reminder = v);
-                  if (v) await requestPlannerReminderAccess(context);
-                },
+              const SizedBox(height: 16),
+              PlannerGroup(
+                children: [
+                  SwitchListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    secondary: Icon(
+                      Icons.notifications_none_rounded,
+                      color: context.tokens.muted,
+                    ),
+                    title: Text(context.plannerText('remindMe')),
+                    value: _reminder,
+                    onChanged: (v) async {
+                      setState(() => _reminder = v);
+                      if (v) await requestPlannerReminderAccess(context);
+                    },
+                  ),
+                  if (_reminder) ...[
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      leading: Icon(
+                        Icons.alarm_rounded,
+                        color: context.tokens.muted,
+                      ),
+                      title: Text(
+                        context.plannerText('reminderTimeAt', {
+                          'time': _time(_reminderMinute),
+                        }),
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right_rounded,
+                        color: context.tokens.muted,
+                      ),
+                      onTap: () => _chooseTime(
+                        _reminderMinute,
+                        (v) => _reminderMinute = v,
+                      ),
+                    ),
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      leading: Icon(
+                        Icons.volume_up_outlined,
+                        color: context.tokens.muted,
+                      ),
+                      title: Text(context.plannerText('reminderSound')),
+                      subtitle: Text(
+                        _soundName.isNotEmpty
+                            ? plannerSoundName(context, _soundName)
+                            : _sound == 'default' || _sound.isEmpty
+                            ? context.plannerText('defaultSoundPreview')
+                            : context.plannerText('selectedSystemTone'),
+                        style: TextStyle(color: context.tokens.muted),
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right_rounded,
+                        color: context.tokens.muted,
+                      ),
+                      onTap: () => pickReminderSound(
+                        context,
+                        uri: _sound == 'default' ? '' : _sound,
+                        onChanged: (sound) => setState(() {
+                          _sound = sound.uri.isEmpty ? 'default' : sound.uri;
+                          _soundName = sound.title;
+                        }),
+                      ),
+                    ),
+                    SwitchListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      secondary: Icon(
+                        Icons.vibration_outlined,
+                        color: context.tokens.muted,
+                      ),
+                      title: Text(context.plannerText('vibrate')),
+                      value: _vibrate,
+                      onChanged: (v) => setState(() => _vibrate = v),
+                    ),
+                  ],
+                ],
               ),
               if (_reminder) ...[
-                OutlinedButton.icon(
-                  onPressed: () =>
-                      _chooseTime(_reminderMinute, (v) => _reminderMinute = v),
-                  icon: const Icon(Icons.notifications_outlined),
-                  label: Text(
-                    context.plannerText('reminderTimeAt', {
-                      'time': _time(_reminderMinute),
-                    }),
-                  ),
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.volume_up_outlined),
-                  title: Text(context.plannerText('reminderSound')),
-                  subtitle: Text(
-                    _soundName.isNotEmpty
-                        ? plannerSoundName(context, _soundName)
-                        : _sound == 'default' || _sound.isEmpty
-                        ? context.plannerText('defaultSoundPreview')
-                        : context.plannerText('selectedSystemTone'),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => pickReminderSound(
-                    context,
-                    uri: _sound == 'default' ? '' : _sound,
-                    onChanged: (sound) => setState(() {
-                      _sound = sound.uri.isEmpty ? 'default' : sound.uri;
-                      _soundName = sound.title;
-                    }),
-                  ),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.vibration_outlined),
-                  title: Text(context.plannerText('vibrate')),
-                  value: _vibrate,
-                  onChanged: (v) => setState(() => _vibrate = v),
-                ),
                 Align(
                   alignment: AlignmentDirectional.centerEnd,
                   child: IconButton(

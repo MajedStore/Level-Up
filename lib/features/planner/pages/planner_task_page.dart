@@ -104,12 +104,13 @@ class _PlannerTaskPageState extends State<PlannerTaskPage> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              PlannerTag(
+              PlannerPill(
                 o.isChallenge
                     ? context.plannerText('challengeTask')
                     : context.plannerText('routineTask'),
+                color: o.isChallenge ? context.colors.primary : null,
               ),
-              PlannerTag(
+              PlannerPill(
                 context.plannerText(o.record.status.name),
                 color: pending
                     ? context.tokens.muted
@@ -126,10 +127,26 @@ class _PlannerTaskPageState extends State<PlannerTaskPage> {
               context,
             ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 12),
-          Text(
-            '${plannerLocalDate(context, o.day, weekday: true)}\n${plannerInterval(o, context: context)}',
-            style: TextStyle(color: context.tokens.muted, height: 1.6),
+          const SizedBox(height: 16),
+          PlannerGroup(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                leading: Icon(
+                  Icons.calendar_today_rounded,
+                  color: context.tokens.muted,
+                ),
+                title: Text(plannerLocalDate(context, o.day, weekday: true)),
+              ),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                leading: Icon(
+                  Icons.schedule_rounded,
+                  color: context.tokens.muted,
+                ),
+                title: Text(plannerInterval(o, context: context)),
+              ),
+            ],
           ),
           if (o.item.description.isNotEmpty)
             Padding(
@@ -189,36 +206,48 @@ class _PlannerTaskPageState extends State<PlannerTaskPage> {
             ),
           ],
           PlannerSection(context.plannerText('remind')),
-          PlannerPanel(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: ListTile(
-              leading: const Icon(Icons.notifications_outlined),
-              title: Text(
-                o.item.reminder.enabled
-                    ? context.plannerText('reminderEnabled')
-                    : context.plannerText('noReminder'),
+          PlannerGroup(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 2,
+                ),
+                leading: Icon(
+                  Icons.notifications_none_rounded,
+                  color: context.tokens.muted,
+                ),
+                title: Text(
+                  o.item.reminder.enabled
+                      ? context.plannerText('reminderEnabled')
+                      : context.plannerText('noReminder'),
+                ),
+                subtitle: Text(
+                  o.item.reminder.enabled
+                      ? context.plannerText('adjustReminder')
+                      : context.plannerText('chooseReminder'),
+                  style: TextStyle(color: context.tokens.muted),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: context.tokens.muted,
+                ),
+                onTap: _busy
+                    ? null
+                    : () async {
+                        final edit = await editPlannerReminder(context, o);
+                        if (edit != null && mounted) {
+                          await _run(
+                            () => controller.setReminder(
+                              o.id,
+                              edit.reminder,
+                              entireSeries: edit.entireSeries,
+                            ),
+                          );
+                        }
+                      },
               ),
-              subtitle: Text(
-                o.item.reminder.enabled
-                    ? context.plannerText('adjustReminder')
-                    : context.plannerText('chooseReminder'),
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: _busy
-                  ? null
-                  : () async {
-                      final edit = await editPlannerReminder(context, o);
-                      if (edit != null && mounted) {
-                        await _run(
-                          () => controller.setReminder(
-                            o.id,
-                            edit.reminder,
-                            entireSeries: edit.entireSeries,
-                          ),
-                        );
-                      }
-                    },
-            ),
+            ],
           ),
           if (o.item.steps.isNotEmpty) ...[
             PlannerSection(
@@ -228,11 +257,14 @@ class _PlannerTaskPageState extends State<PlannerTaskPage> {
               }),
             ),
             PlannerPanel(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(
                 children: [
                   for (var index = 0; index < o.item.steps.length; index++)
                     CheckboxListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                      ),
                       value: o.record.completedSteps.contains(index),
                       onChanged:
                           !actionable ||

@@ -286,7 +286,6 @@ void main() {
             navigation: navigation,
             onOpen: (_) {},
             onAdd: (_) {},
-            todayFooter: Text('Package', key: GlobalKey()),
           ),
         ),
         planner: c,

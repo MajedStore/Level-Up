@@ -20,14 +20,17 @@ class CloudSnapshot {
 
   factory CloudSnapshot.fromMap(Map<String, dynamic> value) {
     final revision = value['revision'];
-    if (revision is! int || revision < 0 ||
+    if (revision is! int ||
+        revision < 0 ||
         value['state'] != null && value['state'] is! Map) {
       throw const FormatException('Invalid cloud snapshot.');
     }
     return CloudSnapshot(
       revision: revision,
       state: value['state'] is Map ? cloudMap(value['state'] as Map) : null,
-      settings: value['settings'] is Map ? cloudMap(value['settings'] as Map) : {},
+      settings: value['settings'] is Map
+          ? cloudMap(value['settings'] as Map)
+          : {},
       serverTime: DateTime.tryParse('${value['serverTime'] ?? ''}'),
       timeZone: value['timeZone'] as String?,
     );
@@ -51,7 +54,8 @@ class CloudMutation {
     required Map<String, dynamic> state,
     required Map<String, dynamic> settings,
     required this.timeZone,
-  }) : state = cloudMap(state), settings = cloudMap(settings);
+  }) : state = cloudMap(state),
+       settings = cloudMap(settings);
   final String mutationId;
   final int baseRevision;
   final Map<String, dynamic> state;
@@ -100,13 +104,19 @@ class CloudCache {
   factory CloudCache.fromMap(Map<String, dynamic> value) => CloudCache(
     ownerId: value['ownerId'] as String?,
     revision: value['revision'] as int? ?? 0,
-    pending: (value['pending'] as List? ?? []).map((v) => CloudMutation.fromMap(cloudMap(v as Map))).toList(),
-    conflict: value['conflict'] is Map ? CloudSnapshot.fromMap(cloudMap(value['conflict'] as Map)) : null,
+    pending: (value['pending'] as List? ?? [])
+        .map((v) => CloudMutation.fromMap(cloudMap(v as Map)))
+        .toList(),
+    conflict: value['conflict'] is Map
+        ? CloudSnapshot.fromMap(cloudMap(value['conflict'] as Map))
+        : null,
     errorCode: value['errorCode'] as String?,
     lastSyncedAt: DateTime.tryParse('${value['lastSyncedAt'] ?? ''}'),
     timeZone: value['timeZone'] as String?,
     lastQueuedFingerprint: value['lastQueuedFingerprint'] as String?,
-    acknowledgedState: value['acknowledgedState'] is Map ? cloudMap(value['acknowledgedState'] as Map) : null,
+    acknowledgedState: value['acknowledgedState'] is Map
+        ? cloudMap(value['acknowledgedState'] as Map)
+        : null,
   );
 
   Map<String, dynamic> toMap() => {
@@ -117,8 +127,10 @@ class CloudCache {
     if (errorCode != null) 'errorCode': errorCode,
     if (lastSyncedAt != null) 'lastSyncedAt': lastSyncedAt!.toIso8601String(),
     if (timeZone != null) 'timeZone': timeZone,
-    if (lastQueuedFingerprint != null) 'lastQueuedFingerprint': lastQueuedFingerprint,
-    if (acknowledgedState != null) 'acknowledgedState': cloudMap(acknowledgedState!),
+    if (lastQueuedFingerprint != null)
+      'lastQueuedFingerprint': lastQueuedFingerprint,
+    if (acknowledgedState != null)
+      'acknowledgedState': cloudMap(acknowledgedState!),
   };
 }
 
@@ -133,13 +145,21 @@ abstract interface class CloudPlannerCache {
   /// Capture any uncaptured foreground/headless change before returning.
   Future<CloudCache> read();
 
+  /// Isolate another account before exposing a newly authenticated UID, even
+  /// when Firestore is temporarily unavailable for the initial restore.
+  Future<void> guardSession(String? secureOwnerId);
+
   /// Restore-first account switch. Preserve matching owner's pending archive;
   /// never replace it with remote data. Isolate all other owners and reminders.
   Future<void> activate(String ownerId, CloudSnapshot remote);
 
   /// Remove only this owner's matching queue head. Replace live state only if
   /// no later/uncaptured write exists; otherwise retain that optimistic draft.
-  Future<bool> acknowledge(String ownerId, String mutationId, CloudSnapshot remote);
+  Future<bool> acknowledge(
+    String ownerId,
+    String mutationId,
+    CloudSnapshot remote,
+  );
 
   Future<void> markConflict(String ownerId, CloudSnapshot? remote, String code);
 

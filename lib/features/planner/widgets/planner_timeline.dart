@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:streak/app/theme/app_tokens.dart';
@@ -12,7 +14,14 @@ export 'planner_timeline_geometry.dart';
 /// Navigation commands reuse the timeline's existing ScrollController.
 class PlannerTimelineNavigation {
   _PlannerTimelineState? _state;
+  bool _visible = true;
   Future<void> returnToNow() => _state?._returnToNow() ?? Future.value();
+  void setVisible(bool visible) {
+    _visible = visible;
+    _state?._setClockVisible(visible);
+  }
+
+  void refreshClock() => _state?._tickClock();
 }
 
 class PlannerTimeline extends StatefulWidget {
@@ -22,7 +31,6 @@ class PlannerTimeline extends StatefulWidget {
     required this.onOpen,
     required this.onAdd,
     this.header,
-    this.todayFooter,
     this.showChallenges = true,
     this.initialDay,
     this.navigation,
@@ -31,7 +39,6 @@ class PlannerTimeline extends StatefulWidget {
   final ValueChanged<PlannerOccurrence> onOpen;
   final ValueChanged<DateTime> onAdd;
   final Widget? header;
-  final Widget? todayFooter;
   final bool showChallenges;
   final DateTime? initialDay;
   final PlannerTimelineNavigation? navigation;
@@ -44,10 +51,14 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
     widget.initialDay ?? widget.controller.now,
   );
   late DateTime _first = plannerAddDays(_origin, -7);
-  late DateTime _footerDay = plannerDay(widget.controller.now);
   late DateTime _focused = _origin;
   final _scroll = ScrollController();
+  late final ValueNotifier<DateTime> _clock = ValueNotifier(
+    widget.controller.now,
+  );
   final _layouts = <String, PlannerDayLayout>{};
+  Timer? _clockTimer;
+  bool _clockVisible = true;
   int _count = 98;
   double _scale = 1;
   bool _initialized = false;
@@ -55,16 +66,15 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
   Future<void>? _returning;
   double get _dayHeader => 64 * math.max(1, _scale.clamp(1, 1.5));
   static const _dayBottom = 24.0;
-  double get _pinnedHeight =>
-      math.max(48, 24 * _scale + 16) +
-      (widget.header == null ? 0 : math.max(48, 24 * _scale + 24)) +
-      8;
+  double get _pinnedHeight => math.max(56, 28 * _scale + 24);
   @override
   void initState() {
     super.initState();
     widget.navigation?._state = this;
+    _clockVisible = widget.navigation?._visible ?? true;
     widget.controller.addListener(_changed);
     _scroll.addListener(_scrolled);
+    _scheduleClockTick();
   }
 
   @override
@@ -75,26 +85,13 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
         oldWidget.navigation?._state = null;
       }
       widget.navigation?._state = this;
+      _clockVisible = widget.navigation?._visible ?? true;
+      _scheduleClockTick();
     }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_changed);
       widget.controller.addListener(_changed);
       _changed();
-    }
-    final today = plannerDay(widget.controller.now);
-    if (today != _footerDay) {
-      final anchor = _anchor();
-      _footerDay = today;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scroll.hasClients) {
-          _scroll.jumpTo(
-            (_offsetForDay(anchor.$1) +
-                    _dayHeader +
-                    _layout(anchor.$1).yForMinute(anchor.$2))
-                .clamp(0, _scroll.position.maxScrollExtent),
-          );
-        }
-      });
     }
   }
 
@@ -110,37 +107,12 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
   );
   double _extra(DateTime day) =>
       _layout(day).unscheduled.length * 96 * math.max(1, _scale);
-  // The footer is a separate sliver, and its extent is measured rather than guessed.
-  final _footerKey = GlobalKey();
-  double _footerHeight = 0;
-  void _measureFooter() {
-    final box = _footerKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null ||
-        !box.hasSize ||
-        (_footerHeight - box.size.height).abs() < .5) {
-      return;
-    }
-    final anchor = _anchor();
-    setState(() => _footerHeight = box.size.height);
-    if (_scroll.hasClients &&
-        _returning == null &&
-        anchor.$1.isAfter(_footerDay)) {
-      _scroll.jumpTo(
-        (_offsetForDay(anchor.$1) +
-                _dayHeader +
-                _layout(anchor.$1).yForMinute(anchor.$2))
-            .clamp(0, _scroll.position.maxScrollExtent),
-      );
-    }
-  }
-
   double _offsetForDay(DateTime day) {
     final index = plannerDayDistance(_first, day).clamp(0, _count - 1);
     var value = 0.0;
     for (var i = 0; i < index; i++) {
       final date = plannerAddDays(_first, i);
       value += _dayHeader + _layout(date).height + _extra(date) + _dayBottom;
-      if (date == _footerDay) value += _footerHeight;
     }
     return value;
   }
@@ -150,12 +122,7 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
     for (var i = 0; i < _count; i++) {
       final day = plannerAddDays(_first, i);
       final layout = _layout(day);
-      final height =
-          _dayHeader +
-          layout.height +
-          _extra(day) +
-          _dayBottom +
-          (day == _footerDay ? _footerHeight : 0);
+      final height = _dayHeader + layout.height + _extra(day) + _dayBottom;
       // Accumulated subpixel heights must not label an exactly aligned day
       // header as the preceding date after a long scroll or buffer prepend.
       if (remaining + .01 < height) {
@@ -307,8 +274,36 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
       widget.navigation?._state = null;
     }
     widget.controller.removeListener(_changed);
+    _clockTimer?.cancel();
+    _clock.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _setClockVisible(bool visible) {
+    if (_clockVisible == visible) return;
+    _clockVisible = visible;
+    _clockTimer?.cancel();
+    _clockTimer = null;
+    if (visible) _tickClock();
+  }
+
+  void _scheduleClockTick() {
+    _clockTimer?.cancel();
+    _clockTimer = null;
+    if (!mounted || !_clockVisible) return;
+    final now = DateTime.now();
+    final remaining = 60000 - (now.millisecondsSinceEpoch % 60000);
+    _clockTimer = Timer(
+      Duration(milliseconds: remaining),
+      _tickClock,
+    );
+  }
+
+  void _tickClock() {
+    if (!mounted) return;
+    _clock.value = widget.controller.now;
+    _scheduleClockTick();
   }
 
   @override
@@ -318,32 +313,32 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
         height: _pinnedHeight,
         child: Padding(
           padding: const EdgeInsetsDirectional.fromSTEB(20, 4, 12, 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      key: ValueKey(
-                        'timeline-focus-${plannerDateKey(_focused)}',
-                      ),
-                      plannerLocalDate(context, _focused, weekday: true),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+              Expanded(
+                child: Text(
+                  key: ValueKey('timeline-focus-${plannerDateKey(_focused)}'),
+                  plannerLocalDate(context, _focused, compact: true),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                  IconButton.filled(
-                    tooltip: context.plannerText('addRoutine'),
-                    onPressed: () => widget.onAdd(_focused),
-                    icon: const Icon(Icons.add),
-                  ),
-                ],
+                ),
               ),
-              if (widget.header != null) Expanded(child: widget.header!),
+              if (widget.header != null) ...[
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: widget.header!,
+                ),
+              ],
+              const SizedBox(width: 4),
+              IconButton.filledTonal(
+                tooltip: context.plannerText('addRoutine'),
+                onPressed: () => widget.onAdd(_focused),
+                icon: const Icon(Icons.add_rounded),
+              ),
             ],
           ),
         ),
@@ -373,35 +368,21 @@ class _PlannerTimelineState extends State<PlannerTimeline> {
               controller: _scroll,
               scrollCacheExtent: const ScrollCacheExtent.pixels(700),
               slivers: [
-                SliverToBoxAdapter(child: SizedBox(height: 0)),
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final day = plannerAddDays(_first, index);
-                      if (day == _footerDay && widget.todayFooter != null) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) _measureFooter();
-                        });
-                      }
                       return Column(
                         key: ValueKey('timeline-day-${plannerDateKey(day)}'),
                         children: [
                           _TimelineDay(
                             layout: _layout(day),
                             headerHeight: _dayHeader,
-                            now: widget.controller.now,
+                            now: _clock,
                             onOpen: widget.onOpen,
                             onAdd: widget.onAdd,
                             alternate: index.isEven,
                           ),
-                          if (day == _footerDay && widget.todayFooter != null)
-                            Container(
-                              key: _footerKey,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: widget.todayFooter,
-                            ),
                         ],
                       );
                     },
@@ -440,7 +421,7 @@ class _TimelineDay extends StatelessWidget {
   });
   final PlannerDayLayout layout;
   final double headerHeight;
-  final DateTime now;
+  final ValueListenable<DateTime> now;
   final ValueChanged<PlannerOccurrence> onOpen;
   final ValueChanged<DateTime> onAdd;
   final bool alternate;
@@ -601,7 +582,6 @@ class _TimelineDay extends StatelessWidget {
     final rtl = Directionality.of(context) == TextDirection.rtl;
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final gutter = math.min(100.0, 64 * math.max(1, scale)).toDouble();
-    final today = plannerDateKey(now) == plannerDateKey(layout.day);
     return Material(
       color: alternate
           ? context.colors.surface
@@ -697,55 +677,66 @@ class _TimelineDay extends StatelessWidget {
                         ),
                       ),
                     ..._events(context, available, gutter, scale),
-                    if (today)
-                      PositionedDirectional(
-                        key: const ValueKey('timeline-now'),
-                        start: gutter - 12,
-                        end: 12,
-                        top: layout.yForMinute(now.hour * 60 + now.minute),
-                        child: IgnorePointer(
-                          child: FractionalTranslation(
-                            translation: const Offset(0, -.5),
-                            child: Row(
-                              textDirection: rtl
-                                  ? TextDirection.rtl
-                                  : TextDirection.ltr,
-                              children: [
-                                Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: BoxDecoration(
-                                    color: context.colors.primary,
-                                    shape: BoxShape.circle,
+                    ValueListenableBuilder<DateTime>(
+                      valueListenable: now,
+                      builder: (context, current, _) {
+                        if (plannerDateKey(current) !=
+                            plannerDateKey(layout.day)) {
+                          return const SizedBox.shrink();
+                        }
+                        return PositionedDirectional(
+                          key: const ValueKey('timeline-now'),
+                          start: gutter - 12,
+                          end: 12,
+                          top: layout.yForMinute(
+                            current.hour * 60 + current.minute,
+                          ),
+                          child: IgnorePointer(
+                            child: FractionalTranslation(
+                              translation: const Offset(0, -.5),
+                              child: Row(
+                                textDirection: rtl
+                                    ? TextDirection.rtl
+                                    : TextDirection.ltr,
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                      color: context.colors.primary,
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: Container(
-                                    key: const ValueKey('timeline-now-line'),
-                                    height: 1.5,
-                                    color: context.colors.primary,
+                                  Expanded(
+                                    child: Container(
+                                      key: const ValueKey('timeline-now-line'),
+                                      height: 1.5,
+                                      color: context.colors.primary,
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  context.plannerText('now'),
-                                  style: TextStyle(
-                                    color: context.colors.primary,
-                                    fontSize: 11,
+                                  Text(
+                                    context.plannerText('now'),
+                                    style: TextStyle(
+                                      color: context.colors.primary,
+                                      fontSize: 11,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               );
             },
           ),
           for (final occurrence in layout.unscheduled)
-            SizedBox(
+            Container(
               height: 96 * math.max(1, scale),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Tooltip(
                 message: plannerOccurrenceTitle(context, occurrence),
                 child: DefaultTextStyle.merge(
@@ -790,6 +781,14 @@ class _TimelineEventBlock extends StatelessWidget {
             _ => Icons.schedule,
           };
     final color = challenge ? context.colors.primary : context.colors.onSurface;
+    final accent = challenge
+        ? context.colors.primary
+        : switch (o.item.category) {
+            'Study' => context.tokens.info,
+            'Fitness' => context.tokens.success,
+            'Work' => context.tokens.warning,
+            _ => context.tokens.muted,
+          };
     return Semantics(
       button: true,
       excludeSemantics: true,
@@ -800,14 +799,24 @@ class _TimelineEventBlock extends StatelessWidget {
         message: '$title · ${plannerInterval(o, context: context)}',
         child: Material(
           color: challenge
-              ? context.colors.primaryContainer.withValues(alpha: .5)
-              : context.colors.surfaceContainer,
-          borderRadius: BorderRadius.circular(9),
+              ? context.colors.primary.withValues(alpha: .16)
+              : context.colors.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(10),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
-            borderRadius: BorderRadius.circular(9),
             onTap: () => onOpen(o),
-            child: Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(8, 5, 6, 5),
+            child: Container(
+              decoration: BoxDecoration(
+                border: BorderDirectional(
+                  start: BorderSide(
+                    color: status == CompletionStatus.pending
+                        ? accent
+                        : accent.withValues(alpha: .35),
+                    width: 3,
+                  ),
+                ),
+              ),
+              padding: const EdgeInsetsDirectional.fromSTEB(9, 5, 6, 5),
               child: LayoutBuilder(
                 builder: (context, bounds) => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -82,11 +82,187 @@ class PlannerPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: accent
-        ? context.colors.primary.withValues(alpha: .08)
-        : context.colors.surfaceContainer,
-    borderRadius: BorderRadius.circular(14),
+        ? context.colors.primary.withValues(alpha: .12)
+        : context.colors.surfaceContainerHigh,
+    borderRadius: BorderRadius.circular(plannerRadius),
     child: Padding(padding: padding, child: child),
   );
+}
+
+/// Corner radius shared by grouped surfaces, matching the sign-in fields'
+/// rounded look at a slightly larger size for multi-row groups.
+const plannerRadius = 18.0;
+
+/// A rounded, filled surface that holds related rows: the same surface as
+/// the sign-in fields. Rows are separated by thin inset dividers unless
+/// [dividers] is false (for rows that may render empty).
+class PlannerGroup extends StatelessWidget {
+  const PlannerGroup({
+    super.key,
+    required this.children,
+    this.dividers = true,
+    this.dividerIndent = 56,
+  });
+  final List<Widget> children;
+  final bool dividers;
+  final double dividerIndent;
+  @override
+  Widget build(BuildContext context) => Material(
+    color: context.colors.surfaceContainerHigh,
+    borderRadius: BorderRadius.circular(plannerRadius),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0 && dividers)
+            Divider(
+              height: 1,
+              thickness: .5,
+              indent: dividerIndent,
+              color: context.colors.outlineVariant,
+            ),
+          children[i],
+        ],
+      ],
+    ),
+  );
+}
+
+/// A rounded status chip with a coloured dot.
+class PlannerPill extends StatelessWidget {
+  const PlannerPill(this.label, {super.key, this.color});
+  final String label;
+  final Color? color;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: context.colors.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: color ?? context.tokens.muted,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: context.tokens.muted),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// A small tinted rounded square holding an icon: the leading mark for
+/// package and assignment rows.
+class PlannerIconTile extends StatelessWidget {
+  const PlannerIconTile(this.icon, {super.key, this.color});
+  final IconData icon;
+  final Color? color;
+  @override
+  Widget build(BuildContext context) {
+    final tint = color ?? context.colors.primary;
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, size: 20, color: tint),
+    );
+  }
+}
+
+/// A navigation/action row: icon, label, optional trailing value. Meant to
+/// sit inside a [PlannerGroup].
+class PlannerMenuRow extends StatelessWidget {
+  const PlannerMenuRow({
+    super.key,
+    required this.label,
+    this.icon,
+    this.leading,
+    this.trailing,
+    this.color,
+    this.chevron = true,
+    this.onTap,
+  });
+  final String label;
+  final IconData? icon;
+  final Widget? leading;
+  final Widget? trailing;
+  final Color? color;
+  final bool chevron;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) {
+    final foreground = color ?? context.colors.onSurface;
+    return InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 56),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 24,
+                child: Center(
+                  child:
+                      leading ??
+                      Icon(
+                        icon,
+                        size: 22,
+                        color: color ?? context.tokens.muted,
+                      ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: onTap == null
+                        ? foreground.withValues(alpha: .4)
+                        : foreground,
+                  ),
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                DefaultTextStyle.merge(
+                  style: TextStyle(color: context.tokens.muted),
+                  child: trailing!,
+                ),
+              ],
+              if (chevron) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: context.tokens.muted,
+                  textDirection: Directionality.of(context),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class PlannerSection extends StatelessWidget {
@@ -95,15 +271,19 @@ class PlannerSection extends StatelessWidget {
   final Widget? action;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 22, bottom: 8),
+    padding: const EdgeInsets.only(top: 24, bottom: 8),
     child: Row(
       children: [
         Expanded(
-          child: Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          child: Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: context.tokens.muted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
         if (action != null) action!,
@@ -171,9 +351,14 @@ class OccurrenceTile extends StatelessWidget {
     super.key,
     required this.occurrence,
     required this.onTap,
+    this.tile = true,
   });
   final PlannerOccurrence occurrence;
   final VoidCallback onTap;
+
+  /// Standalone rows draw their own rounded surface; rows inside a
+  /// [PlannerGroup] pass false and use the group's surface.
+  final bool tile;
   @override
   Widget build(BuildContext context) {
     final o = occurrence;
@@ -186,10 +371,10 @@ class OccurrenceTile extends StatelessWidget {
     final identity = context.plannerText(
       o.isChallenge ? 'challengeTask' : 'routineTask',
     );
-    return Semantics(
+    final row = Semantics(
       label: '$identity, ${context.plannerText(o.record.status.name)}',
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         minLeadingWidth: 24,
         leading: Tooltip(
           message: identity,
@@ -254,10 +439,24 @@ class OccurrenceTile extends StatelessWidget {
                 ),
               ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded, size: 20),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: context.tokens.muted,
+            ),
           ],
         ),
         onTap: onTap,
+      ),
+    );
+    if (!tile) return row;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: context.colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: row,
       ),
     );
   }

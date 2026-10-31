@@ -41,45 +41,202 @@ class TomorrowAssignmentTile extends StatelessWidget {
           (e) => e.idempotencyKey == 'missed_selection:${selection?.dateKey}',
         )
         .fold<int>(0, (n, e) => n + e.change);
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        instance == null ? Icons.flag_outlined : Icons.emoji_events_outlined,
-      ),
-      title: Text(
-        context.plannerText(
-          instance != null
-              ? 'selectedForTomorrow'
+    return PlannerGroup(
+      children: [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
+          ),
+          leading: PlannerIconTile(
+            instance == null
+                ? Icons.flag_outlined
+                : Icons.emoji_events_outlined,
+          ),
+          title: Text(
+            context.plannerText(
+              instance != null
+                  ? 'selectedForTomorrow'
+                  : selection?.isMissed == true
+                  ? 'selectionMissed'
+                  : 'chooseTomorrow',
+            ),
+          ),
+          subtitle: Text(
+            instance == null
+                ? selection?.isMissed == true
+                      ? '${plannerLocalDate(context, tomorrow)} · ${context.plannerText('selectionPenaltyApplied', {'xp': plannerNumber(context, deducted)})}'
+                      : plannerLocalDate(context, tomorrow, weekday: true)
+                : plannerTemplateName(context, instance.snapshot),
+            style: TextStyle(color: context.tokens.muted),
+          ),
+          trailing: selection?.isMissed == true
+              ? null
+              : Icon(Icons.chevron_right_rounded, color: context.tokens.muted),
+          onTap: instance != null
+              ? () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        ChallengeInstancePage(instanceId: instance.id),
+                  ),
+                )
               : selection?.isMissed == true
-              ? 'selectionMissed'
-              : 'chooseTomorrow',
+              ? null
+              : () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PackageSelectionPage(),
+                  ),
+                ),
         ),
-      ),
-      subtitle: Text(
-        instance == null
-            ? selection?.isMissed == true
-                  ? '${plannerLocalDate(context, tomorrow)} · ${context.plannerText('selectionPenaltyApplied', {'xp': plannerNumber(context, deducted)})}'
-                  : plannerLocalDate(context, tomorrow, weekday: true)
-            : plannerTemplateName(context, instance.snapshot),
-      ),
-      trailing: selection?.isMissed == true
-          ? null
-          : const Icon(Icons.chevron_right),
-      onTap: instance != null
-          ? () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => ChallengeInstancePage(instanceId: instance.id),
-              ),
-            )
-          : selection?.isMissed == true
-          ? null
-          : () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => const PackageSelectionPage(),
+      ],
+    );
+  }
+}
+
+/// Today's assigned package and its actionable tasks live with the challenge
+/// controls. Individual challenge occurrences remain on the Schedule timeline.
+class TodayChallengeSection extends StatelessWidget {
+  const TodayChallengeSection({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<PlannerController>();
+    final today = plannerDay(c.now);
+    final challenges = c
+        .occurrences(today)
+        .where((occurrence) => occurrence.isChallenge)
+        .toList();
+    final ids = challenges.map((occurrence) => occurrence.challengeId).toSet();
+    final assignment = c.selectionFor(today);
+    if (assignment?.instanceId != null) ids.add(assignment!.instanceId);
+    final packages = c.instances.where((instance) => ids.contains(instance.id));
+
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 10),
+          child: Text(
+            context.plannerText('todaysChallenge'),
+            style: text.labelLarge?.copyWith(
+              color: context.tokens.muted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        if (packages.isEmpty)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(bottom: 8),
+            child: Text(
+              context.plannerText('noChallenge'),
+              style: TextStyle(color: context.tokens.muted),
+            ),
+          ),
+        for (final package in packages)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: context.colors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(plannerRadius),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            ChallengeInstancePage(instanceId: package.id),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                        16,
+                        16,
+                        12,
+                        12,
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox.square(
+                            dimension: 44,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                CircularProgressIndicator(
+                                  value: c.challengeProgress(package),
+                                  strokeWidth: 3,
+                                  backgroundColor:
+                                      context.colors.surfaceContainerHighest,
+                                ),
+                                Icon(
+                                  Icons.emoji_events_outlined,
+                                  size: 20,
+                                  color: context.colors.primary,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  plannerTemplateName(
+                                    context,
+                                    package.snapshot,
+                                  ),
+                                  style: text.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  '${context.plannerText(package.status.name)} · ${plannerNumber(context, c.challengeCompletedCount(package))}/${plannerNumber(context, c.challengeTotalCount(package))}',
+                                  style: text.bodySmall?.copyWith(
+                                    color: context.tokens.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: context.tokens.muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (package.status == ChallengeStatus.active)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Column(
+                        children: [
+                          for (final task in package.snapshot.rootTasks)
+                            ChallengeTaskNode(
+                              instance: package,
+                              task: task,
+                              occurrences: challenges
+                                  .where(
+                                    (occurrence) =>
+                                        occurrence.challengeId == package.id,
+                                  )
+                                  .toList(),
+                              day: today,
+                              pendingOnly: true,
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
+          ),
+      ],
     );
   }
 }
@@ -97,11 +254,14 @@ class _PlannerChallengesPageState extends State<PlannerChallengesPage> {
     final c = context.watch<PlannerController>();
     return ListView(
       key: const PageStorageKey('challenges'),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
+        const TodayChallengeSection(),
+        const SizedBox(height: 8),
         const TomorrowAssignmentTile(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         SegmentedButton<bool>(
+          showSelectedIcon: false,
           segments: [
             ButtonSegment(
               value: false,
@@ -115,40 +275,66 @@ class _PlannerChallengesPageState extends State<PlannerChallengesPage> {
           selected: {_history},
           onSelectionChanged: (v) => setState(() => _history = v.first),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         if (!_history) ...[
-          for (final t in c.templates) _TemplateRow(template: t),
+          if (c.templates.isNotEmpty)
+            PlannerGroup(
+              dividerIndent: 72,
+              children: [
+                for (final t in c.templates) _TemplateRow(template: t),
+              ],
+            ),
           if (c.templates.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Text(context.plannerText('emptyTemplates')),
+              child: Text(
+                context.plannerText('emptyTemplates'),
+                style: TextStyle(color: context.tokens.muted),
+              ),
             ),
-          FilledButton.icon(
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute<void>(
                 builder: (_) => const PlannerPackageEditorPage(),
               ),
             ),
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_rounded),
             label: Text(context.plannerText('createPackage')),
           ),
         ] else ...[
-          if (c.instances.isEmpty) Text(context.plannerText('noHistory')),
-          for (final i in c.instances.reversed)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(plannerTemplateName(context, i.snapshot)),
-              subtitle: Text(
-                '${plannerLocalDate(context, i.startDate)} · ${context.plannerText(i.status.name)}',
+          if (c.instances.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Text(
+                context.plannerText('noHistory'),
+                style: TextStyle(color: context.tokens.muted),
               ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => ChallengeInstancePage(instanceId: i.id),
-                ),
-              ),
+            ),
+          if (c.instances.isNotEmpty)
+            PlannerGroup(
+              dividerIndent: 16,
+              children: [
+                for (final i in c.instances.reversed)
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 2,
+                    ),
+                    title: Text(plannerTemplateName(context, i.snapshot)),
+                    subtitle: Text(
+                      '${plannerLocalDate(context, i.startDate)} · ${context.plannerText(i.status.name)}',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => ChallengeInstancePage(instanceId: i.id),
+                      ),
+                    ),
+                  ),
+              ],
             ),
         ],
       ],
@@ -165,11 +351,6 @@ String packageSummary(BuildContext context, ChallengeTemplate template) =>
       'xp': plannerNumber(context, template.totalPossibleXp),
     });
 
-String _packageCategory(BuildContext context, ChallengeTemplate template) =>
-    template.categoryName.trim().isEmpty
-    ? context.plannerText('noCategory')
-    : template.categoryName;
-
 class _TemplateRow extends StatelessWidget {
   const _TemplateRow({required this.template, this.selection = false});
   final ChallengeTemplate template;
@@ -179,23 +360,22 @@ class _TemplateRow extends StatelessWidget {
     final t = template;
     final c = context.read<PlannerController>();
     return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(plannerTemplateName(context, t)),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${_packageCategory(context, t)} · ${context.plannerText('packageTaskCount', {'count': plannerNumber(context, t.leafTasks.length)})}',
-          ),
-          const SizedBox(height: 8),
-          PlannerOutcomeSummary(
-            completionXp: t.totalPossibleXp,
-            failurePenalty: t.failurePenalty,
-            skipPenalty: t.skipPenalty,
-          ),
-        ],
+      contentPadding: const EdgeInsetsDirectional.fromSTEB(16, 4, 8, 4),
+      leading: const PlannerIconTile(Icons.emoji_events_outlined),
+      title: Text(
+        plannerTemplateName(context, t),
+        style: const TextStyle(fontWeight: FontWeight.w600),
       ),
-      isThreeLine: true,
+      subtitle: Text(
+        [
+          if (t.categoryName.trim().isNotEmpty) t.categoryName,
+          context.plannerText('packageTaskCount', {
+            'count': plannerNumber(context, t.leafTasks.length),
+          }),
+          '+${plannerNumber(context, t.totalPossibleXp)} ${context.plannerText('xp')}',
+        ].join(' · '),
+        style: TextStyle(color: context.tokens.muted),
+      ),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute<void>(
@@ -203,7 +383,7 @@ class _TemplateRow extends StatelessWidget {
         ),
       ),
       trailing: selection
-          ? const Icon(Icons.chevron_right)
+          ? Icon(Icons.chevron_right_rounded, color: context.tokens.muted)
           : PopupMenuButton<String>(
               tooltip: context.plannerText('editPackage'),
               itemBuilder: (_) => [
@@ -265,12 +445,17 @@ class PackageSelectionPage extends StatelessWidget {
         children: [
           Text(
             context.plannerText('selectForDate', {
-              'date': plannerLocalDate(context, target, weekday: true),
+              'date': plannerLocalDate(context, target, compact: true),
             }),
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Text(
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: context.tokens.muted),
             context.plannerText('selectionRulesInfo', {
               'time': selected == null
                   ? TimeOfDay(
@@ -292,16 +477,24 @@ class PackageSelectionPage extends StatelessWidget {
           else if (selected?.isMissed == true)
             Text(context.plannerText('selectionMissed'))
           else ...[
-            for (final t in c.templates)
-              _TemplateRow(template: t, selection: true),
-            TextButton.icon(
+            if (c.templates.isNotEmpty) ...[
+              PlannerGroup(
+                dividerIndent: 72,
+                children: [
+                  for (final t in c.templates)
+                    _TemplateRow(template: t, selection: true),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+            OutlinedButton.icon(
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
                   builder: (_) => const PlannerPackageEditorPage(),
                 ),
               ),
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add_rounded),
               label: Text(context.plannerText('createPackage')),
             ),
           ],
@@ -335,52 +528,90 @@ class _ChallengePreviewPageState extends State<ChallengePreviewPage> {
         children: [
           Text(
             plannerTemplateName(context, t),
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 8),
-          Text(_packageCategory(context, t)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            context.plannerText('packageTaskCount', {
-              'count': plannerNumber(
-                context,
-                t.tasks.where((task) => !task.isGroup).length,
-              ),
-            }),
+            [
+              if (t.categoryName.trim().isNotEmpty) t.categoryName,
+              context.plannerText('packageTaskCount', {
+                'count': plannerNumber(
+                  context,
+                  t.tasks.where((task) => !task.isGroup).length,
+                ),
+              }),
+              context.plannerText('selectForDate', {
+                'date': plannerLocalDate(context, tomorrow, compact: true),
+              }),
+            ].join(' · '),
+            style: TextStyle(color: context.tokens.muted),
           ),
           if (t.description.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.only(top: 14),
               child: Text(plannerTemplateDescription(context, t)),
             ),
-          const SizedBox(height: 16),
-          Text(
-            context.plannerText('selectForDate', {
-              'date': plannerLocalDate(context, tomorrow, weekday: true),
-            }),
-          ),
           PlannerSection(context.plannerText('tasks')),
-          for (final task in t.rootTasks)
-            _DefinitionRow(task: task, template: t),
-          PlannerSection(context.plannerText('commitment')),
-          PlannerOutcomeSummary(
-            completionXp: t.completionXp,
-            failurePenalty: t.failurePenalty,
-            skipPenalty: t.skipPenalty,
+          PlannerGroup(
+            children: [
+              for (final task in t.rootTasks)
+                _DefinitionRow(task: task, template: t),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            '${context.plannerText('deadline')}: ${plannerLocalDate(context, deadline)} ${TimeOfDay.fromDateTime(deadline).format(context)}',
+          PlannerSection(context.plannerText('commitment')),
+          PlannerPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PlannerOutcomeSummary(
+                  completionXp: t.completionXp,
+                  failurePenalty: t.failurePenalty,
+                  skipPenalty: t.skipPenalty,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.event_rounded,
+                      size: 16,
+                      color: context.tokens.muted,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '${context.plannerText('deadline')}: ${plannerLocalDate(context, deadline)} ${TimeOfDay.fromDateTime(deadline).format(context)}',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
-          if (t.rewardMode == ChallengeRewardMode.legacyPerTask)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(context.plannerText('legacyRewardRules')),
+          DefaultTextStyle.merge(
+            style:
+                Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(
+                  color: context.tokens.muted,
+                  height: 1.45,
+                ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (t.rewardMode == ChallengeRewardMode.legacyPerTask)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(context.plannerText('legacyRewardRules')),
+                  ),
+                Text(context.plannerText('requiredTasksRule')),
+                const SizedBox(height: 6),
+                Text(context.plannerText('assignmentLocked')),
+              ],
             ),
-          Text(context.plannerText('requiredTasksRule')),
-          const SizedBox(height: 8),
-          Text(context.plannerText('assignmentLocked')),
+          ),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: _busy || locked
@@ -450,8 +681,10 @@ class _DefinitionRow extends StatelessWidget {
         template.durationDays > 1;
     return ExpansionTile(
       key: PageStorageKey('preview-task-${task.id}'),
-      tilePadding: EdgeInsets.zero,
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      childrenPadding: const EdgeInsets.only(bottom: 8),
       leading: Icon(
+        color: context.tokens.muted,
         task.isGroup
             ? Icons.folder_outlined
             : task.startMinute == null
@@ -471,8 +704,11 @@ class _DefinitionRow extends StatelessWidget {
       children: [
         if (task.isGroup) ...[
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(context.plannerText('groupCompletionRule')),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              context.plannerText('groupCompletionRule'),
+              style: TextStyle(color: context.tokens.muted),
+            ),
           ),
           for (final child in children)
             Padding(
@@ -567,50 +803,112 @@ class ChallengeInstancePage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Text(
-            context.plannerText(instance.status.name),
-            style: TextStyle(color: context.colors.primary),
-          ),
-          const SizedBox(height: 8),
-          Text(_packageCategory(context, instance.snapshot)),
-          const SizedBox(height: 12),
-          Text(
-            context.plannerText('completedTasks', {
-              'done': plannerNumber(
-                context,
-                c.challengeCompletedCount(instance),
-              ),
-              'total': plannerNumber(context, c.challengeTotalCount(instance)),
-            }),
-          ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(value: c.challengeProgress(instance)),
-          const SizedBox(height: 12),
-          Text(
-            '${context.plannerText('deadline')}: ${plannerLocalDate(context, instance.deadline)} ${TimeOfDay.fromDateTime(instance.deadline).format(context)}',
+          PlannerPanel(
+            child: Row(
+              children: [
+                Tooltip(
+                  message: context.plannerText('completedTasks', {
+                    'done': plannerNumber(
+                      context,
+                      c.challengeCompletedCount(instance),
+                    ),
+                    'total': plannerNumber(
+                      context,
+                      c.challengeTotalCount(instance),
+                    ),
+                  }),
+                  child: SizedBox.square(
+                    dimension: 56,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox.expand(
+                          child: CircularProgressIndicator(
+                            value: c.challengeProgress(instance),
+                            strokeWidth: 4,
+                            backgroundColor:
+                                context.colors.surfaceContainerHighest,
+                          ),
+                        ),
+                        Text(
+                          '${plannerNumber(context, c.challengeCompletedCount(instance))}/${plannerNumber(context, c.challengeTotalCount(instance))}',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.plannerText(instance.status.name),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: context.colors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          if (instance.snapshot.categoryName.trim().isNotEmpty)
+                            instance.snapshot.categoryName,
+                          '${context.plannerText('deadline')}: ${plannerLocalDate(context, instance.deadline)} ${TimeOfDay.fromDateTime(instance.deadline).format(context)}',
+                        ].join(' · '),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: context.tokens.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           PlannerSection(context.plannerText('tasks')),
-          for (final task in instance.snapshot.rootTasks)
-            ChallengeTaskNode(
-              instance: instance,
-              task: task,
-              occurrences: tasks.values.toList(),
-            ),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: Text(context.plannerText('commitment')),
+          PlannerGroup(
+            dividers: false,
             children: [
-              Text(context.plannerText('requiredTasksRule')),
-              if (instance.snapshot.rewardMode ==
-                  ChallengeRewardMode.legacyPerTask)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(context.plannerText('legacyRewardRules')),
+              for (final task in instance.snapshot.rootTasks)
+                ChallengeTaskNode(
+                  instance: instance,
+                  task: task,
+                  occurrences: tasks.values.toList(),
                 ),
-              PlannerOutcomeSummary(
-                completionXp: instance.snapshot.completionXp,
-                failurePenalty: instance.snapshot.failurePenalty,
-                skipPenalty: instance.snapshot.skipPenalty,
+            ],
+          ),
+          const SizedBox(height: 16),
+          PlannerGroup(
+            children: [
+              ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                leading: Icon(
+                  Icons.handshake_outlined,
+                  color: context.tokens.muted,
+                ),
+                title: Text(context.plannerText('commitment')),
+                children: [
+                  Text(context.plannerText('requiredTasksRule')),
+                  if (instance.snapshot.rewardMode ==
+                      ChallengeRewardMode.legacyPerTask)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(context.plannerText('legacyRewardRules')),
+                    ),
+                  PlannerOutcomeSummary(
+                    completionXp: instance.snapshot.completionXp,
+                    failurePenalty: instance.snapshot.failurePenalty,
+                    skipPenalty: instance.snapshot.skipPenalty,
+                  ),
+                ],
               ),
             ],
           ),
@@ -660,6 +958,7 @@ class ChallengeTaskNode extends StatelessWidget {
             OccurrenceTile(
               key: ValueKey('package-occurrence-${o.id}'),
               occurrence: o,
+              tile: false,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
@@ -692,7 +991,7 @@ class ChallengeTaskNode extends StatelessWidget {
     final status = c.taskNodeStatus(instance, task.id, day: day);
     return ExpansionTile(
       key: PageStorageKey('instance-${instance.id}-group-${task.id}'),
-      tilePadding: EdgeInsets.zero,
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Icon(
         status == CompletionStatus.completed
             ? Icons.task_alt
@@ -710,7 +1009,7 @@ class ChallengeTaskNode extends StatelessWidget {
       ),
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Text(
             context.plannerText('groupCompletionRule'),
             style: TextStyle(color: context.tokens.muted),

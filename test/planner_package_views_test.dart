@@ -105,6 +105,8 @@ Future<void> _pump(
 
 Future<void> _tap(WidgetTester tester, Finder target) async {
   await tester.ensureVisible(target);
+  // The scroll applies on the next frame; tap after it lands.
+  await tester.pump();
   await tester.tap(target);
   await tester.pumpAndSettle();
 }
@@ -197,9 +199,9 @@ void main() {
           .toList(),
     );
     await _pump(tester, c, ChallengePreviewPage(template: overnight));
-    expect(find.text('My fitness'), findsOneWidget);
+    // Category and task count share the preview's single summary line.
+    expect(find.textContaining('My fitness · 4 tasks'), findsOneWidget);
     expect(find.text('Hard'), findsNothing);
-    expect(find.text('4 tasks'), findsOneWidget);
     await _tap(tester, find.text('Workout'));
     await _tap(tester, find.text('Warm-up'));
     await _tap(tester, find.text('Prepare'));

@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:streak/core/database/local_store.dart';
 import 'package:streak/features/planner/data/planner_models.dart';
 import 'package:streak/features/planner/state/planner_controller.dart';
 import 'package:streak/features/planner/pages/level_up_shell.dart';
 import 'package:streak/features/planner/pages/planner_challenges_page.dart';
 import 'package:streak/features/planner/pages/planner_task_page.dart';
+import 'package:streak/features/planner/pages/cloud_account_page.dart';
 import 'package:streak/features/planner/widgets/planner_timeline.dart';
+import 'package:streak/features/planner/widgets/google_logo.dart';
+import 'package:streak/services/cloud_api.dart';
+import 'package:streak/services/cloud_sync_controller.dart';
 import 'support/app_harness.dart';
+import 'cloud_sync_controller_test.dart'
+    show FakeCloudApi, MemoryCloudCache, MemorySessions;
 
 final _now = DateTime(2026, 10, 29, 12);
 PlannerController _controller() => PlannerController(
@@ -21,6 +28,8 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
     await tester.scrollUntilVisible(finder, 300, maxScrolls: 30);
   }
   await tester.ensureVisible(finder);
+  // The scroll applies on the next frame; tap after it lands.
+  await tester.pump();
   await tester.tap(finder);
   await tester.pumpAndSettle();
 }
@@ -93,6 +102,230 @@ void main() {
       await _tap(tester, find.byIcon(Icons.person_outline_rounded));
       expect(find.text('XP history'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    },
+  );
+
+  testWidgets('mandatory sign-in hides the app until Firebase auth succeeds', (
+    tester,
+  ) async {
+    final cloud = CloudSyncController(
+      api: FakeCloudApi(),
+      cache: MemoryCloudCache(),
+      sessionStore: MemorySessions(),
+    );
+    await cloud.initialize();
+    final planner = _controller();
+    await pumpScreen(
+      tester,
+      LevelUpShell(refresh: _refresh),
+      planner: planner,
+      cloud: cloud,
+    );
+
+    expect(find.byType(CloudAccountPage), findsOneWidget);
+    expect(find.byType(PlannerTimeline), findsNothing);
+    expect(find.byKey(const ValueKey('cloud-google-submit')), findsOneWidget);
+    expect(find.text('Continue offline'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('cloud-email')),
+      'a@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('cloud-password')),
+      'A-long-password-123',
+    );
+    await _tap(tester, find.byKey(const ValueKey('cloud-submit')));
+
+    expect(cloud.user?.id, 'a');
+    expect(find.byType(CloudAccountPage), findsNothing);
+    expect(find.byType(PlannerTimeline), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    cloud.dispose();
+    planner.dispose();
+  });
+
+  testWidgets(
+    'continuing without an account opens the app, persists, and can sign in later',
+    (tester) async {
+      final cloud = CloudSyncController(
+        api: FakeCloudApi(),
+        cache: MemoryCloudCache(),
+        sessionStore: MemorySessions(),
+      );
+      await cloud.initialize();
+      final planner = _controller();
+      Future<void> open() => pumpScreen(
+        tester,
+        LevelUpShell(refresh: _refresh),
+        planner: planner,
+        cloud: cloud,
+      );
+      await open();
+      expect(find.byType(PlannerTimeline), findsNothing);
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('cloud-continue-without-account')),
+      );
+      expect(cloud.user, isNull);
+      expect(find.byType(CloudAccountPage), findsNothing);
+      expect(find.byType(PlannerTimeline), findsOneWidget);
+      expect(LocalStore.setting('levelUpContinueWithoutAccount', false), true);
+
+      // The choice survives an app restart.
+      await tester.pumpWidget(const SizedBox());
+      await open();
+      expect(find.byType(PlannerTimeline), findsOneWidget);
+
+      await _tap(tester, find.byType(NavigationDestination).at(2));
+      expect(find.text('Not signed in'), findsOneWidget);
+      expect(find.text('Stored on this device'), findsOneWidget);
+      expect(find.text('Sign out'), findsNothing);
+      await _tap(tester, find.byKey(const ValueKey('profile-sign-in')));
+      expect(find.byType(CloudAccountPage), findsOneWidget);
+      expect(find.byType(PlannerTimeline), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('cloud-email')),
+        'a@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('cloud-password')),
+        'A-long-password-123',
+      );
+      await _tap(tester, find.byKey(const ValueKey('cloud-submit')));
+      expect(cloud.user?.id, 'a');
+      expect(find.byType(PlannerTimeline), findsOneWidget);
+      expect(LocalStore.setting('levelUpContinueWithoutAccount', true), false);
+
+      // After an account session ends, the sign-in screen returns.
+      await cloud.signOut();
+      await tester.pumpAndSettle();
+      expect(find.byType(CloudAccountPage), findsOneWidget);
+      expect(find.byType(PlannerTimeline), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      cloud.dispose();
+      planner.dispose();
+    },
+  );
+
+  testWidgets('mandatory sign-in cannot be dismissed with Back', (
+    tester,
+  ) async {
+    final cloud = CloudSyncController(
+      api: FakeCloudApi(),
+      cache: MemoryCloudCache(),
+      sessionStore: MemorySessions(),
+    );
+    await cloud.initialize();
+    final planner = _controller();
+    await pumpScreen(
+      tester,
+      LevelUpShell(refresh: _refresh),
+      planner: planner,
+      cloud: cloud,
+    );
+    final google = find.byKey(const ValueKey('cloud-google-submit'));
+    expect(
+      find.descendant(of: google, matching: find.byType(GoogleLogo)),
+      findsOneWidget,
+    );
+    final pop = tester.widget<PopScope>(
+      find
+          .descendant(
+            of: find.byType(CloudAccountPage),
+            matching: find.byType(PopScope),
+          )
+          .first,
+    );
+    expect(pop.canPop, isFalse);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(CloudAccountPage), findsOneWidget);
+    expect(find.byType(PlannerTimeline), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    cloud.dispose();
+    planner.dispose();
+  });
+
+  testWidgets(
+    'profile offers account actions without manual sync and resume retries',
+    (tester) async {
+      final api = FakeCloudApi()
+        ..getError = const CloudApiException('network_error');
+      final cloud = CloudSyncController(
+        api: api,
+        cache: MemoryCloudCache(),
+        sessionStore: MemorySessions(),
+        exportDraft: () async => '{}',
+        retryDelays: const [],
+      );
+      await tester.runAsync(() async {
+        await cloud.initialize();
+        await cloud.signIn('a@example.com', 'A-long-password-123');
+      });
+      expect(cloud.status, CloudSyncStatus.offline);
+      final planner = _controller();
+      await pumpScreen(
+        tester,
+        LevelUpShell(refresh: _refresh),
+        planner: planner,
+        cloud: cloud,
+      );
+      await _tap(tester, find.byIcon(Icons.person_outline_rounded));
+      expect(find.text('a@example.com'), findsOneWidget);
+      expect(find.text('Sync now'), findsNothing);
+      expect(find.text('Export local draft'), findsOneWidget);
+      expect(find.text('Sign out'), findsOneWidget);
+
+      api.getError = null;
+      final before = api.events.length;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump();
+      expect(api.events.length, greaterThan(before));
+      expect(cloud.status, isNot(CloudSyncStatus.offline));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      cloud.dispose();
+      planner.dispose();
+    },
+  );
+
+  testWidgets(
+    'today challenge controls are on Challenges, tasks stay on Schedule',
+    (
+      tester,
+    ) async {
+      final c = _controller();
+      await c.startChallenge(_package());
+      await pumpScreen(tester, LevelUpShell(refresh: _refresh), planner: c);
+
+      expect(find.byType(PlannerTimeline), findsOneWidget);
+      expect(find.text("Today's challenge"), findsNothing);
+      expect(find.text("Choose tomorrow's package"), findsNothing);
+      expect(find.byType(TodayChallengeSection), findsNothing);
+      expect(find.byType(TomorrowAssignmentTile), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('Warm-up'),
+        300,
+        maxScrolls: 30,
+      );
+      await _tap(tester, find.byIcon(Icons.bolt_outlined));
+      expect(find.text("Today's challenge"), findsOneWidget);
+      expect(find.text('Hard Workout'), findsOneWidget);
+      expect(find.text("Choose tomorrow's package"), findsOneWidget);
+      await _tap(tester, find.byIcon(Icons.calendar_view_week_outlined));
+      expect(find.text("Today's challenge"), findsNothing);
+      expect(find.text('Warm-up'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       c.dispose();
